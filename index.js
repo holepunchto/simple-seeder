@@ -2,12 +2,15 @@
 
 const Corestore = require('corestore')
 const Hyperswarm = require('hyperswarm')
+const Hyperbundle = require('hyperbundle')
+const HypercoreId = require('hypercore-id-encoding')
 const minimist = require('minimist')
 const goodbye = require('graceful-goodbye')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
-    key: 'k'
+    key: 'k',
+    bundle: 'b',
   }
 })
 
@@ -15,6 +18,7 @@ const store = new Corestore('./corestore')
 const swarm = new Hyperswarm()
 
 const keys = [].concat(argv.key || [])
+const bundles = [].concat(argv.bundle || [])
 
 swarm.on('connection', function (socket) {
   const p = socket.remotePublicKey.toString('hex')
@@ -30,17 +34,34 @@ swarm.on('connection', function (socket) {
 })
 
 for (const key of keys) {
-  const buf = Buffer.from(key, 'hex')
-  const core = store.get(buf)
+  downloadCore(key)
+}
+for (const key of bundles) {
+  downloadBundle(key)
+}
 
-  core.ready().then(function () {
-    console.log('Adding', core)
-    const k = core.key.toString('hex')
-    swarm.join(core.discoveryKey)
-    core.download()
-    core.on('download', function (index) {
-      console.log('Downloaded block', index, 'from', k)
-    })
+async function downloadBundle (key) {
+  const bundle = new Hyperbundle(store, HypercoreId.decode(key))
+  await bundle.ready()
+  const bundleId = HypercoreId.encode(HypercoreId.decode(key))
+  console.log('downloading bundle', bundleId)
+
+  downloadCore(bundle.core)
+  bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId, false))
+}
+
+async function downloadCore (core, bundleId, announce) {
+  core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core 
+  await core.ready()
+  const id = HypercoreId.encode(core.key)
+  console.log('downloading core', id)
+
+  if (announce !== false) swarm.join(core.discoveryKey)
+  core.download()
+
+  core.on('download', function (index) {
+    const bundleDataTag = bundleId ? 'with bundle ' + bundleId : ''
+    console.log('downloaded block', index, 'from', id, bundleDataTag)
   })
 }
 
