@@ -49,7 +49,6 @@ async function downloadBundle (key) {
   downloadCore(bundle.core)
   bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId))
 
-  console.log('joining swarm with discovery key:', HypercoreId.encode(bundle.core.discoveryKey))
   swarm.join(bundle.core.discoveryKey)
 }
 
