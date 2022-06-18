@@ -47,17 +47,16 @@ async function downloadBundle (key) {
   console.log('downloading bundle', bundleId)
 
   downloadCore(bundle.core)
-  bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId))
-
-  swarm.join(bundle.core.discoveryKey)
+  bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId, false))
 }
 
-async function downloadCore (core, bundleId) {
+async function downloadCore (core, bundleId, announce) {
   core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core 
   await core.ready()
   const id = HypercoreId.encode(core.key)
   console.log('downloading core', id)
 
+  if (announce !== false) swarm.join(core.discoveryKey)
   core.download()
 
   core.on('download', function (index) {
