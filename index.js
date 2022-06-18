@@ -41,13 +41,11 @@ for (const key of bundles) {
 }
 
 async function downloadBundle (key) {
-  const bundle = new Hyperbundle(store, HypercoreId.decode(key))
-  await bundle.ready()
   const bundleId = HypercoreId.encode(HypercoreId.decode(key))
-  console.log('downloading bundle', bundleId)
-
-  downloadCore(bundle.core)
+  const bundle = new Hyperbundle(store, HypercoreId.decode(key))
   bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId, false))
+  console.log('downloading bundle', bundleId)
+  downloadCore(bundle.core)
 }
 
 async function downloadCore (core, bundleId, announce) {
