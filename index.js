@@ -49,11 +49,15 @@ async function start () {
   }
 
   for (const s of seeders) {
-    const sw = new Seeders(HypercoreId.decode(s), {
+    const publicKey = HypercoreId.decode(s)
+    const id = HypercoreId.encode(publicKey)
+    const keyPair = await store.createKeyPair('simple-seeder-swarm@' + id)
+    const sw = new Seeders(publicKey, {
       dht: swarm.dht,
-      keyPair: swarm.keyPair,
-      server: false
+      keyPair: keyPair,
     })
+
+    console.log('Seeder swarm for ' + s + ' listening on ' + id)
 
     sw.join()
     sw.on('connection', onsocket)
@@ -62,10 +66,6 @@ async function start () {
     })
 
     goodbye(() => sw.destroy())
-
-    if (!bundles.includes(s)) {
-      downloadBundle(s, false)
-    }
   }
 
   async function downloadBundle (key, announce) {
