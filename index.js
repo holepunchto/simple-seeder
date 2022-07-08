@@ -35,6 +35,8 @@ async function start () {
   const bundles = [].concat(argv.bundle || [])
   const seeders = [].concat(argv.seeder || [])
 
+  let connections = 0
+
   swarm.on('connection', onsocket)
 
   swarm.listen()
@@ -92,15 +94,18 @@ async function start () {
   goodbye(() => swarm.destroy())
 
   function onsocket (socket) {
-    const p = socket.remotePublicKey.toString('hex')
+    const p = HypercoreId.encode(socket.remotePublicKey)
 
-    console.log('Connection opened', p)
+    connections++
+
+    console.log('Connection opened', p, '(total ' + connections + ')')
     store.replicate(socket)
     socket.on('error', function (err) {
       console.log(err)
     })
     socket.on('close', function () {
-      console.log('Connection closed', p)
+      connections--
+      console.log('Connection closed', p, '(total ' + connections + ')')
     })
   }
 }
