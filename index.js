@@ -57,7 +57,7 @@ async function start () {
       keyPair: keyPair,
     })
 
-    console.log('Seeder swarm for ' + s + ' listening on ' + id)
+    console.log('Seeder swarm for ' + s + ' listening on ' + HypercoreId.encode(keyPair.publicKey))
 
     sw.join()
     sw.on('connection', onsocket)
