@@ -1,6 +1,6 @@
 {
   "name": "simple-seeder",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Dead simple seeder with zero bugs",
   "main": "index.js",
   "bin": {
