@@ -7,7 +7,7 @@
     "simple-seeder": "./index.js"
   },
   "dependencies": {
-    "@hyperswarm/seeders": "^1.1.0",
+    "@hyperswarm/seeders": "^1.1.2",
     "corestore": "next",
     "graceful-goodbye": "^1.0.0",
     "hyperbundle": "^1.1.1",

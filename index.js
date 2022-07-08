@@ -54,7 +54,7 @@ async function start () {
     const keyPair = await store.createKeyPair('simple-seeder-swarm@' + id)
     const sw = new Seeders(publicKey, {
       dht: swarm.dht,
-      keyPair: keyPair,
+      keyPair: keyPair
     })
 
     console.log('Seeder swarm for ' + s + ' listening on ' + HypercoreId.encode(keyPair.publicKey))
