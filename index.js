@@ -58,6 +58,8 @@ async function start () {
       console.log('seeder change for ' + s + ':', record)
     })
 
+    goodbye(() => sw.destroy())
+
     if (!bundles.includes(s)) {
       downloadBundle(s, false)
     }
