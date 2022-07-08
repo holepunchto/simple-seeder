@@ -66,6 +66,10 @@ async function start () {
     })
 
     goodbye(() => sw.destroy())
+
+    if (!bundles.includes(s)) {
+      downloadBundle(s, false)
+    }
   }
 
   async function downloadBundle (key, announce) {
