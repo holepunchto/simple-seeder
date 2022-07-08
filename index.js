@@ -49,6 +49,7 @@ async function start () {
   for (const s of seeders) {
     const sw = new Seeders(HypercoreId.decode(s), {
       dht: swarm.dht,
+      keyPair: swarm.keyPair,
       server: false
     })
 
