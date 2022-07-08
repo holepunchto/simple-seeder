@@ -35,18 +35,7 @@ async function start () {
   const bundles = [].concat(argv.bundle || [])
   const seeders = [].concat(argv.seeder || [])
 
-  swarm.on('connection', function (socket) {
-    const p = socket.remotePublicKey.toString('hex')
-
-    console.log('Connection opened', p)
-    store.replicate(socket)
-    socket.on('error', function (err) {
-      console.log(err)
-    })
-    socket.on('close', function () {
-      console.log('Connection closed', p)
-    })
-  })
+  swarm.on('connection', onsocket)
 
   swarm.listen()
 
@@ -59,21 +48,27 @@ async function start () {
 
   for (const s of seeders) {
     const sw = new Seeders(HypercoreId.decode(s), {
-      dht: swarm.dht
+      dht: swarm.dht,
+      server: false
     })
 
     sw.join()
+    sw.on('connection', onsocket)
     sw.on('update', function (record) {
       console.log('seeder change for ' + s + ':', record)
     })
+
+    if (!bundles.includes(s)) {
+      downloadBundle(s, false)
+    }
   }
 
-  async function downloadBundle (key) {
+  async function downloadBundle (key, announce) {
     const bundleId = HypercoreId.encode(HypercoreId.decode(key))
     const bundle = new Hyperbundle(store, HypercoreId.decode(key))
     bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId, false))
     console.log('downloading bundle', bundleId)
-    downloadCore(bundle.core)
+    downloadCore(bundle.core, null, announce)
   }
 
   async function downloadCore (core, bundleId, announce) {
@@ -92,4 +87,17 @@ async function start () {
   }
 
   goodbye(() => swarm.destroy())
+
+  function onsocket (socket) {
+    const p = socket.remotePublicKey.toString('hex')
+
+    console.log('Connection opened', p)
+    store.replicate(socket)
+    socket.on('error', function (err) {
+      console.log(err)
+    })
+    socket.on('close', function () {
+      console.log('Connection closed', p)
+    })
+  }
 }
