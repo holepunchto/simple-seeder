@@ -82,7 +82,10 @@ async function start () {
     const id = HypercoreId.encode(core.key)
     console.log('downloading core', id)
 
-    if (announce !== false) swarm.join(core.discoveryKey)
+    if (announce !== false) {
+      console.log('announcing', id)
+      swarm.join(core.discoveryKey)
+    }
     core.download()
 
     core.on('download', function (index) {
