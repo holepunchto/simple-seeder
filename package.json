@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@hyperswarm/seeders": "^1.1.2",
-    "corestore": "next",
+    "corestore": "^6.0.0",
     "graceful-goodbye": "^1.0.0",
     "hyperbundle": "^1.1.1",
     "hypercore-id-encoding": "^1.0.0",
