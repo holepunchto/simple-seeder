@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 
+const segfaultHandler = require('node-segfault-handler')
+
+/**
+ * Once a segfault occurs,
+ * stacktraces from V8 and native stacktraces will be printed to the STDERR
+ */
+segfaultHandler.registerHandler()
+
 const Corestore = require('corestore')
 const Hyperswarm = require('hyperswarm')
 const Hyperbundle = require('hyperbundle')

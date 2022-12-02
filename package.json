@@ -13,7 +13,8 @@
     "hyperbundle": "^1.1.1",
     "hypercore-id-encoding": "^1.0.0",
     "hyperswarm": "^4.0.0",
-    "minimist": "^1.2.6"
+    "minimist": "^1.2.6",
+    "node-segfault-handler": "^1.1.0"
   },
   "repository": {
     "type": "git",
