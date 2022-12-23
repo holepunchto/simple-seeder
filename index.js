@@ -23,7 +23,7 @@ start().catch(err => {
 
 async function start () {
   const secretKey = argv['secret-key']
-  const store = new Corestore('./corestore')
+  const store = new Corestore(argv.storage || './corestore')
   const swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
     keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm')
