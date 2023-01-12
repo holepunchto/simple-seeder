@@ -8,8 +8,21 @@ npm install -g simple-seeder
 
 ## Usage
 
-```
+```sh
 simple-seeder -k <hypercore key> -k <hypercore key 2>
+```
+
+Alternatively, a file containing the seeds list:
+```sh
+simple-seeder --file ./seeds.txt
+```
+
+`seeds.txt`
+```
+key <hypercore key>
+key <hypercore key 2>
+bundle <bundle key>
+seeder <seeder key>
 ```
 
 ## License
