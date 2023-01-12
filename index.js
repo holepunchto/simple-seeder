@@ -8,6 +8,7 @@ const Seeders = require('@hyperswarm/seeders')
 const minimist = require('minimist')
 const goodbye = require('graceful-goodbye')
 const fsp = require('fs/promises')
+const configs = require('tiny-configs')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -38,7 +39,7 @@ async function start () {
 
   if (argv.file) {
     const seeds = await fsp.readFile(argv.file)
-    for (const [type, key] of parseConfig(seeds)) {
+    for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
       if (type === 'key') keys.push(key)
       else if (type === 'bundle') bundles.push(key)
       else if (type === 'seeder') seeders.push(key)
@@ -126,17 +127,4 @@ async function start () {
       console.log('Connection closed', p, '(total ' + connections + ')')
     })
   }
-}
-
-function parseConfig (cfg) {
-  return cfg.toString()
-    .split('\n')
-    .map(line => {
-      line = line.replace(/\s+/g, ' ').trim()
-      line = line.replace(/#.*$/, '').trim()
-      const i = line.indexOf(' ')
-      if (i === -1) return null
-      return [line.slice(0, i), line.slice(i + 1)]
-    })
-    .filter(m => m && m[0] && m[1])
 }
