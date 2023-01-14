@@ -7,6 +7,8 @@ const HypercoreId = require('hypercore-id-encoding')
 const Seeders = require('@hyperswarm/seeders')
 const minimist = require('minimist')
 const goodbye = require('graceful-goodbye')
+const fsp = require('fs/promises')
+const configs = require('tiny-configs')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -34,6 +36,16 @@ async function start () {
   const keys = [].concat(argv.key || [])
   const bundles = [].concat(argv.bundle || [])
   const seeders = [].concat(argv.seeder || [])
+
+  if (argv.file) {
+    const seeds = await fsp.readFile(argv.file)
+    for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
+      if (type === 'key') keys.push(key)
+      else if (type === 'bundle') bundles.push(key)
+      else if (type === 'seeder') seeders.push(key)
+      else throw new Error('Invalid seed type: ' + type)
+    }
+  }
 
   let connections = 0
 
