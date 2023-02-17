@@ -127,4 +127,14 @@ async function start () {
       console.log('Connection closed', p, '(total ' + connections + ')')
     })
   }
+
+  await swarm.dht.ready()
+
+  console.log()
+  console.log('Node info:')
+  console.log('- remote host:', swarm.dht.host)
+  console.log('- remote port:', swarm.dht.port)
+  console.log('- firewalled:', swarm.dht.firewalled)
+  console.log('- nat type:', swarm.dht.port ? 'consistent' : 'random')
+  console.log()
 }
