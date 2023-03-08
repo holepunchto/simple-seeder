@@ -2,7 +2,7 @@
 
 const Corestore = require('corestore')
 const Hyperswarm = require('hyperswarm')
-const Hyperbundle = require('hyperbundle')
+const Hyperdrive = require('hyperdrive')
 const HypercoreId = require('hypercore-id-encoding')
 const Seeders = require('@hyperswarm/seeders')
 const minimist = require('minimist')
@@ -86,7 +86,7 @@ async function start () {
 
   async function downloadBundle (key, announce) {
     const bundleId = HypercoreId.encode(HypercoreId.decode(key))
-    const bundle = new Hyperbundle(store, HypercoreId.decode(key))
+    const bundle = new Hyperdrive(store, HypercoreId.decode(key))
     bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId, false))
     console.log('downloading bundle', bundleId)
     downloadCore(bundle.core, null, announce)

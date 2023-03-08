@@ -7,13 +7,14 @@
     "simple-seeder": "./index.js"
   },
   "dependencies": {
-    "@hyperswarm/dht": "github:holepunchto/hyperswarm-dht#memleak",
+    "@hyperswarm/dht": "^6.5.0",
     "@hyperswarm/seeders": "^1.1.2",
     "corestore": "^6.0.0",
     "graceful-goodbye": "^1.0.0",
     "hyperbundle": "^1.1.1",
-    "hypercore": "github:holepunchto/hypercore#memleak",
+    "hypercore": "^10.8.0",
     "hypercore-id-encoding": "^1.0.0",
+    "hyperdrive": "^11.0.0-alpha.10",
     "hyperswarm": "^4.0.0",
     "minimist": "^1.2.6",
     "tiny-configs": "^1.1.0"
