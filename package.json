@@ -10,8 +10,8 @@
     "@hyperswarm/seeders": "^1.1.2",
     "corestore": "^6.0.0",
     "graceful-goodbye": "^1.0.0",
-    "hyperbundle": "^1.1.1",
     "hypercore-id-encoding": "^1.0.0",
+    "hyperdrive": "next",
     "hyperswarm": "^4.0.0",
     "minimist": "^1.2.6",
     "tiny-configs": "^1.1.0"
