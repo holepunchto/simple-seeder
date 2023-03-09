@@ -11,7 +11,6 @@
     "@hyperswarm/seeders": "^1.1.2",
     "corestore": "^6.0.0",
     "graceful-goodbye": "^1.0.0",
-    "hypercore": "^10.8.0",
     "hypercore-id-encoding": "^1.0.0",
     "hyperdrive": "^11.0.0-alpha.10",
     "hyperswarm": "^4.0.0",
