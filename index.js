@@ -36,14 +36,14 @@ async function start () {
   console.log('Starting with with public key', HypercoreId.encode(swarm.keyPair.publicKey))
 
   const keys = [].concat(argv.key || [])
-  const bundles = [].concat(argv.bundle || [])
+  const drives = [].concat(argv.drive || [])
   const seeders = [].concat(argv.seeder || [])
 
   if (argv.file) {
     const seeds = await fsp.readFile(argv.file)
     for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
       if (type === 'key') keys.push(key)
-      else if (type === 'bundle') bundles.push(key)
+      else if (type === 'bundle' || type === 'drive') drives.push(key)
       else if (type === 'seeder') seeders.push(key)
       else throw new Error('Invalid seed type: ' + type)
     }
@@ -58,8 +58,8 @@ async function start () {
   for (const key of keys) {
     downloadCore(key)
   }
-  for (const key of bundles) {
-    downloadBundle(key)
+  for (const key of drives) {
+    downloadDrive(key)
   }
 
   for (const s of seeders) {
@@ -81,20 +81,20 @@ async function start () {
 
     goodbye(() => sw.destroy())
 
-    if (!bundles.includes(s)) {
-      downloadBundle(s, false)
+    if (!drives.includes(s)) {
+      downloadDrive(s, false)
     }
   }
 
-  async function downloadBundle (key, announce) {
-    const bundleId = HypercoreId.encode(HypercoreId.decode(key))
-    const bundle = new Hyperdrive(store, HypercoreId.decode(key))
-    bundle.on('blobs', blobs => downloadCore(blobs.core, bundleId, false))
-    console.log('downloading bundle', bundleId)
-    downloadCore(bundle.core, null, announce)
+  async function downloadDrive (key, announce) {
+    const driveId = HypercoreId.encode(HypercoreId.decode(key))
+    const drive = new Hyperdrive(store, HypercoreId.decode(key))
+    drive.on('blobs', blobs => downloadCore(blobs.core, driveId, false))
+    console.log('downloading drive', driveId)
+    downloadCore(drive.core, null, announce)
   }
 
-  async function downloadCore (core, bundleId, announce) {
+  async function downloadCore (core, driveId, announce) {
     core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
     await core.ready()
     const id = HypercoreId.encode(core.key)
@@ -107,8 +107,8 @@ async function start () {
     core.download()
 
     core.on('download', function (index) {
-      const bundleDataTag = bundleId ? 'with bundle ' + bundleId : ''
-      console.log('downloaded block', index, 'from', id, bundleDataTag)
+      const driveDataTag = driveId ? 'with drive ' + driveId : ''
+      console.log('downloaded block', index, 'from', id, driveDataTag)
     })
   }
 
