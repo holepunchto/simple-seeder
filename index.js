@@ -43,7 +43,7 @@ async function start () {
     const seeds = await fsp.readFile(argv.file)
     for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
       if (type === 'key') keys.push(key)
-      else if (type === 'bundle') bundles.push(key)
+      else if (type === 'bundle' || type === 'drive') bundles.push(key)
       else if (type === 'seeder') seeders.push(key)
       else throw new Error('Invalid seed type: ' + type)
     }
