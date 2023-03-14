@@ -14,7 +14,9 @@ const argv = minimist(process.argv.slice(2), {
   alias: {
     key: 'k',
     bundle: 'b',
-    seeder: 's'
+    seeder: 's',
+    drive: 'b',
+    d: 'b'
   }
 })
 
