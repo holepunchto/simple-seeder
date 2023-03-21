@@ -22,7 +22,7 @@ simple-seeder --file ./seeds.txt
 `seeds.txt`
 ```
 key <hypercore key>
-bundle <bundle key>
+drive <drive key>
 seeder <seeder key>
 ```
 
