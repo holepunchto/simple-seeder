@@ -10,6 +10,7 @@
     "@hyperswarm/seeders": "^1.1.2",
     "corestore": "^6.0.0",
     "graceful-goodbye": "^1.0.0",
+    "hyperbee": "^2.7.3",
     "hypercore-id-encoding": "^1.0.0",
     "hyperdrive": "next",
     "hyperswarm": "^4.0.0",
