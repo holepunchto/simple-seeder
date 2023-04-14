@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const Corestore = require('corestore')
+const Hyperbee = require('hyperbee')
 const Hyperswarm = require('hyperswarm')
 const Hyperdrive = require('hyperdrive')
 const HypercoreId = require('hypercore-id-encoding')
@@ -13,6 +14,7 @@ const configs = require('tiny-configs')
 const argv = minimist(process.argv.slice(2), {
   alias: {
     key: 'k',
+    bee: 'bee',
     bundle: 'b',
     seeder: 's',
     drive: 'b',
@@ -36,6 +38,7 @@ async function start () {
   console.log('Starting with with public key', HypercoreId.encode(swarm.keyPair.publicKey))
 
   const keys = [].concat(argv.key || [])
+  const bees = [].concat(argv.bee || [])
   const drives = [].concat(argv.drive || [])
   const seeders = [].concat(argv.seeder || [])
 
@@ -43,6 +46,7 @@ async function start () {
     const seeds = await fsp.readFile(argv.file)
     for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
       if (type === 'key') keys.push(key)
+      else if (type === 'bee') bees.push(key)
       else if (type === 'bundle' || type === 'drive') drives.push(key)
       else if (type === 'seeder') seeders.push(key)
       else throw new Error('Invalid seed type: ' + type)
@@ -58,6 +62,11 @@ async function start () {
   for (const key of keys) {
     downloadCore(key)
   }
+
+  for (const key of bees) {
+    downloadBee(key)
+  }
+
   for (const key of drives) {
     downloadDrive(key)
   }
@@ -91,14 +100,23 @@ async function start () {
     const drive = new Hyperdrive(store, HypercoreId.decode(key))
     drive.on('blobs', blobs => downloadCore(blobs.core, driveId, false))
     console.log('downloading drive', driveId)
-    downloadCore(drive.core, null, announce)
+    downloadBee(drive.core, announce)
   }
 
-  async function downloadCore (core, driveId, announce) {
+  async function downloadBee (core, announce) {
+    core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
+
+    const bee = new Hyperbee(core)
+    await bee.ready()
+
+    downloadCore(core, null, announce, 'bee')
+  }
+
+  async function downloadCore (core, driveId, announce, name) {
     core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
     await core.ready()
     const id = HypercoreId.encode(core.key)
-    console.log('downloading core', id)
+    console.log('downloading', name || 'core', id)
 
     if (announce !== false) {
       console.log('announcing', id)
