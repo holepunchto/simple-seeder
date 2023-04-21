@@ -27,6 +27,7 @@ const argv = minimist(process.argv.slice(2), {
 const tracking = {
   intervalId: null,
   output: '',
+  notifs: {},
   swarm: null,
   cores: [],
   bees: [],
@@ -36,7 +37,7 @@ const tracking = {
 
 start().catch(err => {
   console.error(err)
-  process.exit()
+  process.exit(1)
 })
 
 async function start () {
@@ -48,7 +49,6 @@ async function start () {
   })
 
   tracking.swarm = swarm
-  update()
 
   const cores = [].concat(argv.key || [])
   const bees = [].concat(argv.bee || [])
@@ -77,15 +77,13 @@ async function start () {
     const publicKey = HypercoreId.decode(key)
     const id = HypercoreId.encode(publicKey)
     const keyPair = await store.createKeyPair('simple-seeder-swarm@' + id)
-    const sw = new Seeders(publicKey, { dht: swarm.dht, keyPair: keyPair })
+    const sw = new Seeders(publicKey, { dht: swarm.dht, keyPair })
 
     tracking.seeders.push(sw)
-    update()
 
     sw.join()
     sw.on('connection', onsocket)
-    // + logs get lost due clear
-    // sw.on('update', (record) => console.log('seeder change for ' + key + ':', record)
+    sw.on('update', (record) => tracking.notifs[id] = record)
 
     goodbye(() => sw.destroy())
 
@@ -108,7 +106,6 @@ async function start () {
       blobs.core.on('upload', () => info.upload(1))
     })
     tracking.drives.push(info)
-    update()
   }
 
   async function downloadBee (core, announce, { track = true } = {}) {
@@ -124,7 +121,6 @@ async function start () {
       core.on('download', () => info.download(1))
       core.on('upload', () => info.upload(1))
       tracking.bees.push(info)
-      update()
     }
   }
 
@@ -136,12 +132,11 @@ async function start () {
       core.on('download', () => info.download(1))
       core.on('upload', () => info.upload(1))
       tracking.cores.push(info)
-      update()
     }
 
     await core.ready()
     if (announce !== false) swarm.join(core.discoveryKey)
-    core.download({ linear: true })
+    core.download()
   }
 
   goodbye(() => swarm.destroy())
@@ -150,8 +145,7 @@ async function start () {
     const remoteInfo = socket.rawStream.remoteHost + ':' + socket.rawStream.remotePort
     const id = HypercoreId.encode(socket.remotePublicKey)
 
-    // + error logs get lost due clear
-    socket.on('error', (err) => console.log(err))
+    socket.on('error', noop)
     store.replicate(socket)
   }
 
@@ -175,15 +169,24 @@ function update () {
   print()
 
   print('Swarm')
-  print('- Public key:', crayon.magenta(HypercoreId.encode(swarm.keyPair.publicKey)))
+  print('- Public key:', crayon.green(HypercoreId.encode(swarm.keyPair.publicKey)))
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
-  // + more info
   print()
 
   print('Seeders')
-  for (const seeder of seeders) {
-    print('-', HypercoreId.encode(seeder.keyPair.publicKey))
-    // + more info
+  for (const sw of seeders) {
+    const seedId = HypercoreId.encode(sw.seedKeyPair.publicKey)
+    const notif = tracking.notifs[seedId]
+
+    if (!notif) continue
+
+    print(
+      '-',
+      seedId,
+      'seeds ' + notif.seeds.length + ',',
+      'length ' + notif.core.length + ',',
+      'fork ' + notif.core.fork
+    )
   }
   print()
 
@@ -193,11 +196,11 @@ function update () {
 
     print(
       '-',
-      crayon.magenta(core.id),
-      crayon.yellow(core.contiguousLength + '/' + core.length),
-      crayon.blueBright('peers ' + core.peers.length),
-      crayon.green('dl ' + Math.ceil(download()) + ' blk/s'),
-      crayon.cyan('up ' + Math.ceil(upload()) + ' blk/s')
+      crayon.green(core.id),
+      crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
+      crayon.yellow(core.peers.length) + ' peers,',
+      crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
+      crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
     )
   }
   print()
@@ -209,11 +212,11 @@ function update () {
 
     print(
       '-',
-      crayon.magenta(core.id),
-      crayon.yellow(core.contiguousLength + '/' + core.length),
-      crayon.blueBright('peers ' + core.peers.length),
-      crayon.green('dl ' + Math.ceil(download()) + ' blk/s'),
-      crayon.cyan('up ' + Math.ceil(upload()) + ' blk/s')
+      crayon.green(core.id),
+      crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
+      crayon.yellow(core.peers.length) + ' peers,',
+      crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
+      crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
     )
   }
   print()
@@ -229,11 +232,11 @@ function update () {
 
     print(
       '-',
-      crayon.magenta(id),
-      crayon.yellow(filesProgress) + ', ' + crayon.yellow(blobsProgress),
-      crayon.blueBright('peers ' + peers),
-      crayon.green('dl ' + Math.ceil(download()) + ' blk/s'),
-      crayon.cyan('up ' + Math.ceil(upload()) + ' blk/s')
+      crayon.green(id),
+      crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
+      crayon.yellow(peers) + ' peers,',
+      crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
+      crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
     )
   }
   print()
@@ -244,3 +247,5 @@ function update () {
   console.clear()
   console.log(output)
 }
+
+function noop () {}
