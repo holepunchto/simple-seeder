@@ -224,8 +224,8 @@ function update () {
       crayon.magenta(core.id),
       crayon.yellow(core.contiguousLength + '/' + core.length),
       crayon.blueBright('peers ' + core.peers.length),
-      crayon.green('dl ' + Math.ceil(download()) + ' b/s'),
-      crayon.cyan('up ' + Math.ceil(upload()) + ' b/s')
+      crayon.green('dl ' + Math.ceil(download()) + ' blk/s'),
+      crayon.cyan('up ' + Math.ceil(upload()) + ' blk/s')
     )
   }
   print()
@@ -240,8 +240,8 @@ function update () {
       crayon.magenta(core.id),
       crayon.yellow(core.contiguousLength + '/' + core.length),
       crayon.blueBright('peers ' + core.peers.length),
-      crayon.green('dl ' + Math.ceil(download()) + ' b/s'),
-      crayon.cyan('up ' + Math.ceil(upload()) + ' b/s')
+      crayon.green('dl ' + Math.ceil(download()) + ' blk/s'),
+      crayon.cyan('up ' + Math.ceil(upload()) + ' blk/s')
     )
   }
   print()
@@ -260,8 +260,8 @@ function update () {
       crayon.magenta(id),
       crayon.yellow(filesProgress) + ', ' + crayon.yellow(blobsProgress),
       crayon.blueBright('peers ' + peers),
-      crayon.green('dl ' + Math.ceil(download()) + ' b/s'),
-      crayon.cyan('up ' + Math.ceil(upload()) + ' b/s')
+      crayon.green('dl ' + Math.ceil(download()) + ' blk/s'),
+      crayon.cyan('up ' + Math.ceil(upload()) + ' blk/s')
     )
   }
   print()
