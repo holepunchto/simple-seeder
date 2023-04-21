@@ -26,6 +26,7 @@ const argv = minimist(process.argv.slice(2), {
 
 const tracking = {
   intervalId: null,
+  output: '',
   swarm: null,
   cores: [],
   bees: [],
@@ -83,9 +84,8 @@ async function start () {
 
     sw.join()
     sw.on('connection', onsocket)
-    /* sw.on('update', function (record) {
-      console.log('seeder change for ' + key + ':', record)
-    }) */
+    // + logs get lost due clear
+    // sw.on('update', (record) => console.log('seeder change for ' + key + ':', record)
 
     goodbye(() => sw.destroy())
 
@@ -155,36 +155,8 @@ async function start () {
     store.replicate(socket)
   }
 
-  watch()
-}
-
-function watch () {
-  const { swarm, seeders, cores, bees, drives } = tracking
-  const { dht } = swarm
-
-  // tracking.intervalId = setInterval(update, 50)
+  tracking.intervalId = setInterval(update, 5000)
   update()
-
-  const DHT_EVENTS = ['listening', 'ready', 'close', 'nat-update', 'ephemeral', 'persistent', 'wakeup', 'network-change']
-  const SWARM_EVENTS = ['connection', 'update']
-  const CORE_EVENTS = ['ready', 'close', 'conflict', 'truncate', 'append', 'download', 'upload', 'peer-add', 'peer-remove']
-
-  for (const event of DHT_EVENTS) dht.on(event, update)
-  for (const event of SWARM_EVENTS) swarm.on(event, update)
-  // + seeders
-
-  for (const { core } of cores) watchCore(core)
-  for (const { bee } of bees) watchCore(bee.core)
-  for (const { drive } of drives) {
-    watchCore(drive.core)
-
-    if (drive.blobs) watchCore(drive.blobs.core)
-    else drive.on('blobs', blobs => watchCore(blobs.core))
-  }
-
-  function watchCore (core) {
-    for (const event of CORE_EVENTS) core.on(event, update)
-  }
 }
 
 function update () {
@@ -210,7 +182,7 @@ function update () {
 
   print('Seeders')
   for (const seeder of seeders) {
-    print(HypercoreId.encode(seeder.keyPair.publicKey))
+    print('-', HypercoreId.encode(seeder.keyPair.publicKey))
     // + more info
   }
   print()
@@ -265,6 +237,9 @@ function update () {
     )
   }
   print()
+
+  if (output === tracking.output) return
+  tracking.output = output
 
   console.clear()
   console.log(output)
