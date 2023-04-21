@@ -196,8 +196,6 @@ function update () {
   let output = ''
   const print = (...args) => output += args.join(' ') + '\n'
 
-  console.clear()
-
   print('Node')
   print('- Address:', crayon.yellow(dht.host + ':' + dht.port))
   print('- Firewalled?', dht.firewalled ? crayon.red('Yes') : crayon.green('No'))
@@ -206,7 +204,7 @@ function update () {
 
   print('Swarm')
   print('- Public key:', crayon.magenta(HypercoreId.encode(swarm.keyPair.publicKey)))
-  print('- Connections:', swarm.connections.size, swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
+  print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
   // + more info
   print()
 
@@ -268,5 +266,6 @@ function update () {
   }
   print()
 
+  console.clear()
   console.log(output)
 }
