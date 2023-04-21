@@ -15,7 +15,9 @@
     "hyperdrive": "next",
     "hyperswarm": "^4.0.0",
     "minimist": "^1.2.6",
-    "tiny-configs": "^1.1.0"
+    "speedometer": "^1.1.0",
+    "tiny-configs": "^1.1.0",
+    "tiny-crayon": "^1.0.5"
   },
   "repository": {
     "type": "git",
