@@ -18,11 +18,10 @@ const DHT = require('hyperdht')
 const argv = minimist(process.argv.slice(2), {
   alias: {
     key: 'k',
-    bee: 'bee',
-    bundle: 'b',
-    seeder: 's',
-    drive: 'b',
-    d: 'b'
+    core: 'c',
+    bee: 'b',
+    drive: 'd',
+    seeder: 's'
   }
 })
 
@@ -56,7 +55,7 @@ async function start () {
 
   tracking.swarm = swarm
 
-  const cores = [].concat(argv.key || [])
+  const cores = [].concat(argv.core || argv.key || [])
   const bees = [].concat(argv.bee || [])
   const drives = [].concat(argv.drive || [])
   const seeders = [].concat(argv.seeder || [])
@@ -64,9 +63,9 @@ async function start () {
   if (argv.file) {
     const seeds = await fs.promises.readFile(argv.file)
     for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
-      if (type === 'key') cores.push(key)
+      if (type === 'core' || type === 'key') cores.push(key)
       else if (type === 'bee') bees.push(key)
-      else if (type === 'bundle' || type === 'drive') drives.push(key)
+      else if (type === 'drive') drives.push(key)
       else if (type === 'seeder') seeders.push(key)
       else throw new Error('Invalid seed type: ' + type)
     }

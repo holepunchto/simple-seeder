@@ -9,7 +9,7 @@ npm install -g simple-seeder
 ## Usage
 
 ```
-simple-seeder -k <hypercore key> -k <hypercore key 2>
+simple-seeder -c <hypercore key> -c <hypercore key 2>
 ```
 
 ## File
@@ -21,9 +21,9 @@ simple-seeder --file ./seeds.txt
 
 `seeds.txt`
 ```
-key <hypercore key>
+core <hypercore key>
 bee <hyperbee key>
-drive <drive key>
+drive <hyperdrive key>
 seeder <seeder key>
 ```
 
