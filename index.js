@@ -223,11 +223,11 @@ function update () {
 
   print('Drives')
   for (const { drive, download, upload } of drives) {
-    if (!drive.opened || !drive.blobs) continue
+    if (!drive.opened) continue
 
     const id = HypercoreId.encode(drive.key)
     const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
-    const blobsProgress = drive.blobs.core.contiguousLength + '/' + drive.blobs.core.length
+    const blobsProgress = (drive.blobs?.core.contiguousLength || 0) + '/' + (drive.blobs?.core.length || 0)
 
     print(
       '-',
