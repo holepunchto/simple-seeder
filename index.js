@@ -140,7 +140,7 @@ async function start () {
       tracking.cores.push(info)
     }
 
-    if (announce !== false) swarm.join(core.discoveryKey)
+    if (announce !== false) swarm.join(core.discoveryKey, { client: true, server: !argv.backup })
     core.download()
   }
 
