@@ -69,9 +69,9 @@ async function start () {
   swarm.on('connection', onsocket)
   swarm.listen()
 
-  for (const key of cores) downloadCore(key)
-  for (const key of bees) downloadBee(key)
-  for (const key of drives) downloadDrive(key)
+  for (const key of cores) await downloadCore(key)
+  for (const key of bees) await downloadBee(key)
+  for (const key of drives) await downloadDrive(key)
 
   for (const key of seeders) {
     const publicKey = HypercoreId.decode(key)
@@ -88,13 +88,14 @@ async function start () {
     goodbye(() => sw.destroy())
 
     if (!drives.includes(key)) {
-      downloadDrive(key, false)
+      await downloadDrive(key, false)
     }
   }
 
   async function downloadDrive (key, announce) {
     const driveId = HypercoreId.encode(HypercoreId.decode(key))
     const drive = new Hyperdrive(store, HypercoreId.decode(key))
+
     drive.on('blobs', blobs => downloadCore(blobs.core, false, { track: false }))
     downloadBee(drive.core, announce, { track: false })
 
@@ -105,6 +106,8 @@ async function start () {
       blobs.core.on('download', () => info.download(1))
       blobs.core.on('upload', () => info.upload(1))
     })
+
+    await drive.ready()
     tracking.drives.push(info)
   }
 
@@ -112,29 +115,31 @@ async function start () {
     core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
 
     const bee = new Hyperbee(core)
-    await bee.ready()
-
-    downloadCore(core, announce, { track, isBee: true })
 
     if (track) {
       const info = { bee, download: speedometer(), upload: speedometer() }
       core.on('download', () => info.download(1))
       core.on('upload', () => info.upload(1))
+
+      await bee.ready()
       tracking.bees.push(info)
     }
+
+    downloadCore(core, announce, { track: false })
   }
 
-  async function downloadCore (core, announce, { track = true, isBee = false } = {}) {
+  async function downloadCore (core, announce, { track = true } = {}) {
     core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
 
-    if (track && !isBee) {
+    await core.ready()
+
+    if (track) {
       const info = { core, download: speedometer(), upload: speedometer() }
       core.on('download', () => info.download(1))
       core.on('upload', () => info.upload(1))
       tracking.cores.push(info)
     }
 
-    await core.ready()
     if (announce !== false) swarm.join(core.discoveryKey)
     core.download()
   }
@@ -157,15 +162,13 @@ function update () {
   const { swarm, seeders, cores, bees, drives } = tracking
   const { dht } = swarm
 
-  if (!dht || !dht.bootstrapped) return
-
   let output = ''
   const print = (...args) => output += args.join(' ') + '\n'
 
   print('Node')
-  print('- Address:', crayon.yellow(dht.host + ':' + dht.port))
-  print('- Firewalled?', dht.firewalled ? crayon.red('Yes') : crayon.green('No'))
-  print('- NAT type:', dht.port ? crayon.green('Consistent') : crayon.red('Random'))
+  print('- Address:', dht.bootstrapped ? crayon.yellow(dht.host + ':' + dht.port) : crayon.gray('~'))
+  print('- Firewalled?', dht.bootstrapped ? (dht.firewalled ? crayon.red('Yes') : crayon.green('No')) : crayon.gray('~'))
+  print('- NAT type:', dht.bootstrapped ? (dht.port ? crayon.green('Consistent') : crayon.red('Random')) : crayon.gray('~'))
   print()
 
   print('Swarm')
@@ -173,75 +176,78 @@ function update () {
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
   print()
 
-  print('Seeders')
-  for (const sw of seeders) {
-    const seedId = HypercoreId.encode(sw.seedKeyPair.publicKey)
-    const notif = tracking.notifs[seedId]
+  if (seeders.length) {
+    print('Seeders')
+    for (const sw of seeders) {
+      const seedId = HypercoreId.encode(sw.seedKeyPair.publicKey)
+      const notif = tracking.notifs[seedId]
 
-    if (!notif) {
-      print('-', crayon.green(seedId), crayon.gray('~'))
-      continue
+      if (!notif) {
+        print('-', crayon.green(seedId), crayon.gray('~'))
+        continue
+      }
+
+      print(
+        '-',
+        crayon.green(seedId),
+        crayon.yellow(notif.seeds.length) + ' seeds,',
+        crayon.yellow(notif.core.length) + ' length,',
+        crayon.yellow(notif.core.fork) + ' fork'
+      )
     }
-
-    print(
-      '-',
-      crayon.green(seedId),
-      crayon.yellow(notif.seeds.length) + ' seeds,',
-      crayon.yellow(notif.core.length) + ' length,',
-      crayon.yellow(notif.core.fork) + ' fork'
-    )
+    print()
   }
-  print()
 
-  print('Cores')
-  for (const { core, download, upload } of cores) {
-    if (!core.opened) continue
-
-    print(
-      '-',
-      crayon.green(core.id),
-      crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-      crayon.yellow(core.peers.length) + ' peers,',
-      crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
-      crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
-    )
+  if (cores.length) {
+    print('Cores')
+    for (const { core, download, upload } of cores) {
+      print(
+        '-',
+        crayon.green(core.id),
+        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
+        crayon.yellow(core.peers.length) + ' peers,',
+        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
+      )
+    }
+    print()
   }
-  print()
 
-  print('Bees')
-  for (const { bee, download, upload } of bees) {
-    const { core } = bee
-    if (!core.opened) continue
+  if (bees.length) {
+    print('Bees')
+    for (const { bee, download, upload } of bees) {
+      const { core } = bee
 
-    print(
-      '-',
-      crayon.green(core.id),
-      crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-      crayon.yellow(core.peers.length) + ' peers,',
-      crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
-      crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
-    )
+      print(
+        '-',
+        crayon.green(core.id),
+        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
+        crayon.yellow(core.peers.length) + ' peers,',
+        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
+      )
+    }
+    print()
   }
-  print()
 
-  print('Drives')
-  for (const { drive, download, upload } of drives) {
-    if (!drive.opened) continue
+  if (drives.length) {
+    print('Drives')
+    for (const { drive, download, upload } of drives) {
+      const id = HypercoreId.encode(drive.key)
+      const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
+      const blobsProgress = (drive.blobs?.core.contiguousLength || 0) + '/' + (drive.blobs?.core.length || 0)
 
-    const id = HypercoreId.encode(drive.key)
-    const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
-    const blobsProgress = (drive.blobs?.core.contiguousLength || 0) + '/' + (drive.blobs?.core.length || 0)
-
-    print(
-      '-',
-      crayon.green(id),
-      crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
-      crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
-      crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
-      crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
-    )
+      print(
+        '-',
+        crayon.green(id),
+        crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
+        crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
+        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
+      )
+    }
+    print()
   }
-  print()
 
   if (output === tracking.output) return
   tracking.output = output
