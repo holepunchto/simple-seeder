@@ -178,14 +178,17 @@ function update () {
     const seedId = HypercoreId.encode(sw.seedKeyPair.publicKey)
     const notif = tracking.notifs[seedId]
 
-    if (!notif) continue
+    if (!notif) {
+      print('-', crayon.green(seedId), crayon.gray('~'))
+      continue
+    }
 
     print(
       '-',
-      seedId,
-      'seeds ' + notif.seeds.length + ',',
-      'length ' + notif.core.length + ',',
-      'fork ' + notif.core.fork
+      crayon.green(seedId),
+      crayon.yellow(notif.seeds.length) + ' seeds,',
+      crayon.yellow(notif.core.length) + ' length,',
+      crayon.yellow(notif.core.fork) + ' fork'
     )
   }
   print()
