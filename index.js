@@ -149,7 +149,7 @@ async function start () {
     store.replicate(socket)
   }
 
-  tracking.intervalId = setInterval(update, 5000)
+  tracking.intervalId = setInterval(update, argv.i || 5000)
   update()
 }
 
