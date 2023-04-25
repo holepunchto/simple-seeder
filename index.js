@@ -228,13 +228,12 @@ function update () {
     const id = HypercoreId.encode(drive.key)
     const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
     const blobsProgress = drive.blobs.core.contiguousLength + '/' + drive.blobs.core.length
-    const peers = drive.core.peers.length + drive.blobs.core.peers.length
 
     print(
       '-',
       crayon.green(id),
       crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
-      crayon.yellow(peers) + ' peers,',
+      crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
       crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
       crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
     )
