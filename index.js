@@ -244,7 +244,7 @@ function update () {
   tracking.output = output
 
   console.clear()
-  console.log(output)
+  process.stdout.write(output)
 }
 
 function noop () {}
