@@ -12,6 +12,7 @@ const fs = require('fs')
 const configs = require('tiny-configs')
 const crayon = require('tiny-crayon')
 const speedometer = require('speedometer')
+const byteSize = require('tiny-byte-size')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -99,12 +100,12 @@ async function start () {
     drive.on('blobs', blobs => downloadCore(blobs.core, false, { track: false }))
     downloadBee(drive.core, announce, { track: false })
 
-    const info = { drive, download: speedometer(), upload: speedometer() }
-    drive.core.on('download', () => info.download(1))
-    drive.core.on('upload', () => info.upload(1))
+    const info = { drive, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
+    drive.core.on('download', onspeed.bind(null, 'download', info))
+    drive.core.on('upload', onspeed.bind(null, 'upload', info))
     drive.on('blobs', blobs => {
-      blobs.core.on('download', () => info.download(1))
-      blobs.core.on('upload', () => info.upload(1))
+      blobs.core.on('download', onspeed.bind(null, 'download', info))
+      blobs.core.on('upload', onspeed.bind(null, 'upload', info))
     })
 
     await drive.ready()
@@ -117,9 +118,9 @@ async function start () {
     const bee = new Hyperbee(core)
 
     if (track) {
-      const info = { bee, download: speedometer(), upload: speedometer() }
-      core.on('download', () => info.download(1))
-      core.on('upload', () => info.upload(1))
+      const info = { bee, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
+      core.on('download', onspeed.bind(null, 'download', info))
+      core.on('upload', onspeed.bind(null, 'upload', info))
 
       await bee.ready()
       tracking.bees.push(info)
@@ -134,9 +135,9 @@ async function start () {
     await core.ready()
 
     if (track) {
-      const info = { core, download: speedometer(), upload: speedometer() }
-      core.on('download', () => info.download(1))
-      core.on('upload', () => info.upload(1))
+      const info = { core, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
+      core.on('download', onspeed.bind(null, 'download', info))
+      core.on('upload', onspeed.bind(null, 'upload', info))
       tracking.cores.push(info)
     }
 
@@ -200,14 +201,16 @@ function update () {
 
   if (cores.length) {
     print('Cores')
-    for (const { core, download, upload } of cores) {
+    for (const { core, blocks, network } of cores) {
       print(
         '-',
         crayon.green(core.id),
         crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
         crayon.yellow(core.peers.length) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
+        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
+        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
       )
     }
     print()
@@ -215,7 +218,7 @@ function update () {
 
   if (bees.length) {
     print('Bees')
-    for (const { bee, download, upload } of bees) {
+    for (const { bee, blocks, network } of bees) {
       const { core } = bee
 
       print(
@@ -223,8 +226,10 @@ function update () {
         crayon.green(core.id),
         crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
         crayon.yellow(core.peers.length) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
+        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
+        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
       )
     }
     print()
@@ -232,7 +237,7 @@ function update () {
 
   if (drives.length) {
     print('Drives')
-    for (const { drive, download, upload } of drives) {
+    for (const { drive, blocks, network } of drives) {
       const id = HypercoreId.encode(drive.key)
       const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
       const blobsProgress = (drive.blobs?.core.contiguousLength || 0) + '/' + (drive.blobs?.core.length || 0)
@@ -242,8 +247,10 @@ function update () {
         crayon.green(id),
         crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
         crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(upload())) + ' blks/s'
+        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
+        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
       )
     }
     print()
@@ -254,6 +261,11 @@ function update () {
 
   console.clear()
   process.stdout.write(output)
+}
+
+function onspeed (eventName, info, index, byteLength, from) {
+  info.blocks[eventName](1)
+  info.network[eventName](byteLength)
 }
 
 function noop () {}

@@ -16,6 +16,7 @@
     "hyperswarm": "^4.0.0",
     "minimist": "^1.2.6",
     "speedometer": "^1.1.0",
+    "tiny-byte-size": "^1.1.0",
     "tiny-configs": "^1.1.0",
     "tiny-crayon": "^1.0.5"
   },
