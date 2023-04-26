@@ -84,7 +84,9 @@ async function start () {
 
     sw.join()
     sw.on('connection', onsocket)
-    sw.on('update', (record) => tracking.notifs[id] = record)
+    sw.on('update', function (record) {
+      tracking.notifs[id] = record
+    })
 
     goodbye(() => sw.destroy())
 
@@ -94,7 +96,6 @@ async function start () {
   }
 
   async function downloadDrive (key, announce) {
-    const driveId = HypercoreId.encode(HypercoreId.decode(key))
     const drive = new Hyperdrive(store, HypercoreId.decode(key))
 
     drive.on('blobs', blobs => downloadCore(blobs.core, false, { track: false }))
@@ -148,9 +149,6 @@ async function start () {
   goodbye(() => swarm.destroy())
 
   function onsocket (socket) {
-    const remoteInfo = socket.rawStream.remoteHost + ':' + socket.rawStream.remotePort
-    const id = HypercoreId.encode(socket.remotePublicKey)
-
     socket.on('error', noop)
     store.replicate(socket)
   }
@@ -164,7 +162,7 @@ function update () {
   const { dht } = swarm
 
   let output = ''
-  const print = (...args) => output += args.join(' ') + '\n'
+  const print = (...args) => { output += args.join(' ') + '\n' }
 
   print('Node')
   print('- Address:', dht.bootstrapped ? crayon.yellow(dht.host + ':' + dht.port) : crayon.gray('~'))

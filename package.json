@@ -3,9 +3,25 @@
   "version": "1.8.0",
   "description": "Dead simple seeder with zero bugs",
   "main": "index.js",
+  "files": [
+    "index.js"
+  ],
   "bin": {
     "simple-seeder": "./index.js"
   },
+  "scripts": {
+    "test": "standard"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/holepunchto/simple-seeder.git"
+  },
+  "author": "Holepunch",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/holepunchto/simple-seeder/issues"
+  },
+  "homepage": "https://github.com/holepunchto/simple-seeder",
   "dependencies": {
     "@hyperswarm/seeders": "^1.1.2",
     "corestore": "^6.0.0",
@@ -20,14 +36,7 @@
     "tiny-configs": "^1.1.0",
     "tiny-crayon": "^1.0.5"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mafintosh/simple-seeder.git"
-  },
-  "author": "Mathias Buus (@mafintosh)",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/mafintosh/simple-seeder/issues"
-  },
-  "homepage": "https://github.com/mafintosh/simple-seeder"
+  "devDependencies": {
+    "standard": "^17.0.0"
+  }
 }

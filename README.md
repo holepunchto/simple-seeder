@@ -29,4 +29,4 @@ seeder <seeder key>
 
 ## License
 
-MIT
+Apache-2.0
