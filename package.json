@@ -28,6 +28,7 @@
     "graceful-goodbye": "^1.0.0",
     "hyperbee": "^2.7.3",
     "hypercore-id-encoding": "^1.0.0",
+    "hyperdht": "^6.5.3",
     "hyperdrive": "next",
     "hyperswarm": "^4.0.0",
     "minimist": "^1.2.6",
