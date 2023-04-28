@@ -13,6 +13,7 @@ const configs = require('tiny-configs')
 const crayon = require('tiny-crayon')
 const speedometer = require('speedometer')
 const byteSize = require('tiny-byte-size')
+const DHT = require('hyperdht')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -44,9 +45,13 @@ start().catch(err => {
 async function start () {
   const secretKey = argv['secret-key']
   const store = new Corestore(argv.storage || './corestore')
+  const port = argv.port
+
+  const dht = new DHT({ port })
   const swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
-    keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm')
+    keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
+    dht
   })
 
   tracking.swarm = swarm
