@@ -25,6 +25,7 @@ core <hypercore key>
 bee <hyperbee key>
 drive <hyperdrive key>
 seeder <seeder key>
+list <list key>
 ```
 
 ## License

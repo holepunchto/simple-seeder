@@ -14,6 +14,7 @@ const crayon = require('tiny-crayon')
 const speedometer = require('speedometer')
 const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
+const menu = require('./menu.js')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -22,6 +23,7 @@ const argv = minimist(process.argv.slice(2), {
     bee: 'b',
     drive: 'd',
     seeder: 's'
+    list: 'l'
   }
 })
 
@@ -30,7 +32,7 @@ const tracking = {
   output: '',
   notifs: {},
   swarm: null,
-  seeds: [],
+  lists: [],
   cores: [],
   bees: [],
   drives: [],
@@ -47,6 +49,11 @@ async function start () {
   const store = new Corestore(argv.storage || './corestore')
   const port = argv.port
 
+  if (argv.menu) {
+    menu(argv.menu, { store })
+    return
+  }
+
   const dht = new DHT({ port })
   const swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
@@ -59,7 +66,7 @@ async function start () {
   swarm.on('connection', onsocket)
   swarm.listen()
 
-  const seeds = [].concat(argv.seeds || [])
+  const lists = [].concat(argv.list || [])
   const cores = [].concat(argv.core || argv.key || [])
   const bees = [].concat(argv.bee || [])
   const drives = [].concat(argv.drive || [])
@@ -72,7 +79,7 @@ async function start () {
     for (const [type, key] of list) {
 
       // TODO: simplify
-      if (type === 'seeds') seeds.push(key)
+      if (type === 'list') lists.push(key)
       else if (type === 'core' || type === 'key') cores.push(key)
       else if (type === 'bee') bees.push(key)
       else if (type === 'drive') drives.push(key)
@@ -81,8 +88,8 @@ async function start () {
     }
   }
 
-  for (const key of seeds) {
-    const bee = await downloadSeeds(key)
+  for (const key of lists) {
+    const bee = await downloadLists(key)
 
     if (argv['dry-run']) continue
 
@@ -100,7 +107,7 @@ async function start () {
     }
   }
 
-  // TODO: dedup keys, in case having too many external seeds where there are more chances to repeat resources
+  // TODO: dedup keys, in case having too many external lists where there are more chances to repeat resources
 
   for (const key of cores) await downloadCore(key)
   for (const key of bees) await downloadBee(key)
@@ -127,7 +134,7 @@ async function start () {
     }
   }
 
-  async function downloadSeeds (core, announce, { track = true } = {}) {
+  async function downloadLists (core, announce, { track = true } = {}) {
     const bee = await downloadBee(core, announce, { track: false })
 
     if (track) {
@@ -135,7 +142,7 @@ async function start () {
       const info = { bee, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
       bee.core.on('download', onspeed.bind(null, 'download', info))
       bee.core.on('upload', onspeed.bind(null, 'upload', info))
-      tracking.seeds.push(info)
+      tracking.lists.push(info)
     }
 
     return bee
@@ -210,7 +217,7 @@ async function start () {
 }
 
 function update () {
-  const { swarm, seeds, seeders, cores, bees, drives } = tracking
+  const { swarm, lists, seeders, cores, bees, drives } = tracking
   const { dht } = swarm
 
   let output = ''
@@ -227,9 +234,9 @@ function update () {
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
   print()
 
-  if (seeds.length) {
-    print('Seeds')
-    for (const { bee, blocks, network } of seeds) {
+  if (lists.length) {
+    print('Lists')
+    for (const { bee, blocks, network } of lists) {
       const { core } = bee
 
       // TODO: reuse

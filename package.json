@@ -33,9 +33,11 @@
     "hyperswarm": "^4.0.0",
     "minimist": "^1.2.6",
     "speedometer": "^1.1.0",
+    "sub-encoder": "^1.0.5",
     "tiny-byte-size": "^1.1.0",
     "tiny-configs": "^1.1.0",
-    "tiny-crayon": "^1.0.5"
+    "tiny-crayon": "^1.0.5",
+    "tiny-menu": "^1.1.0"
   },
   "devDependencies": {
     "standard": "^17.0.0"
