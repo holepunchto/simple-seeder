@@ -30,6 +30,7 @@ const tracking = {
   output: '',
   notifs: {},
   swarm: null,
+  seeds: [],
   cores: [],
   bees: [],
   drives: [],
@@ -58,22 +59,48 @@ async function start () {
   swarm.on('connection', onsocket)
   swarm.listen()
 
+  const seeds = [].concat(argv.seeds || [])
   const cores = [].concat(argv.core || argv.key || [])
   const bees = [].concat(argv.bee || [])
   const drives = [].concat(argv.drive || [])
   const seeders = [].concat(argv.seeder || [])
 
   if (argv.file) {
-    const seeds = await fs.promises.readFile(argv.file)
-    for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
-      if (type === 'core' || type === 'key') cores.push(key)
+    const file = await fs.promises.readFile(argv.file)
+    const list = configs.parse(file, { split: ' ', length: 2 })
+
+    for (const [type, key] of list) {
+
+      // TODO: simplify
+      if (type === 'seeds') seeds.push(key)
+      else if (type === 'core' || type === 'key') cores.push(key)
       else if (type === 'bee') bees.push(key)
       else if (type === 'drive') drives.push(key)
       else if (type === 'seeder') seeders.push(key)
-      else throw new Error('Invalid seed type: ' + type)
+      else throw new Error('Invalid seed type: ' + type + ' for ' + key)
     }
   }
 
+  for (const key of seeds) {
+    const bee = await downloadSeeds(key)
+
+    if (argv['dry-run']) continue
+
+    for (const type of ['core', 'bee', 'drive', 'seeder']) {
+      const list = bee.sub(type, { keyEncoding: 'utf-8', valueEncoding: 'json' })
+
+      for await (const entry of list.createReadStream()) {
+        // TODO: simplify
+        if (type === 'core') cores.push(entry.key)
+        else if (type === 'bee') bees.push(entry.key)
+        else if (type === 'drive') drives.push(entry.key)
+        else if (type === 'seeder') seeders.push(entry.key)
+        else throw new Error('Invalid seed type: ' + type + ' for ' + entry.key)
+      }
+    }
+  }
+
+  // TODO: dedup keys, in case having too many external seeds where there are more chances to repeat resources
 
   for (const key of cores) await downloadCore(key)
   for (const key of bees) await downloadBee(key)
@@ -100,6 +127,20 @@ async function start () {
     }
   }
 
+  async function downloadSeeds (core, announce, { track = true } = {}) {
+    const bee = await downloadBee(core, announce, { track: false })
+
+    if (track) {
+      // TODO: reuse info + onspeed maker
+      const info = { bee, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
+      bee.core.on('download', onspeed.bind(null, 'download', info))
+      bee.core.on('upload', onspeed.bind(null, 'upload', info))
+      tracking.seeds.push(info)
+    }
+
+    return bee
+  }
+
   async function downloadDrive (key, announce) {
     const drive = new Hyperdrive(store, HypercoreId.decode(key))
 
@@ -122,17 +163,18 @@ async function start () {
     core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
 
     const bee = new Hyperbee(core)
+    await bee.ready()
 
     if (track) {
       const info = { bee, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
       core.on('download', onspeed.bind(null, 'download', info))
       core.on('upload', onspeed.bind(null, 'upload', info))
-
-      await bee.ready()
       tracking.bees.push(info)
     }
 
-    downloadCore(core, announce, { track: false })
+    await downloadCore(core, announce, { track: false })
+
+    return bee
   }
 
   async function downloadCore (core, announce, { track = true } = {}) {
@@ -168,7 +210,7 @@ async function start () {
 }
 
 function update () {
-  const { swarm, seeders, cores, bees, drives } = tracking
+  const { swarm, seeds, seeders, cores, bees, drives } = tracking
   const { dht } = swarm
 
   let output = ''
@@ -184,6 +226,26 @@ function update () {
   print('- Public key:', crayon.green(HypercoreId.encode(swarm.keyPair.publicKey)))
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
   print()
+
+  if (seeds.length) {
+    print('Seeds')
+    for (const { bee, blocks, network } of seeds) {
+      const { core } = bee
+
+      // TODO: reuse
+      print(
+        '-',
+        crayon.green(core.id),
+        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
+        crayon.yellow(core.peers.length) + ' peers,',
+        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
+        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
+        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
+      )
+    }
+    print()
+  }
 
   if (seeders.length) {
     print('Seeders')
