@@ -146,7 +146,12 @@ async function start () {
       tracking.cores.push(info)
     }
 
-    if (announce !== false) swarm.join(core.discoveryKey, { client: true, server: !argv.backup })
+    if (announce !== false) {
+      const done = core.findingPeers()
+      swarm.join(core.discoveryKey, { client: true, server: !argv.backup })
+      swarm.flush().then(done, done)
+    }
+
     core.download()
   }
 
