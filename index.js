@@ -55,6 +55,9 @@ async function start () {
 
   tracking.swarm = swarm
 
+  swarm.on('connection', onsocket)
+  swarm.listen()
+
   const cores = [].concat(argv.core || argv.key || [])
   const bees = [].concat(argv.bee || [])
   const drives = [].concat(argv.drive || [])
@@ -71,8 +74,6 @@ async function start () {
     }
   }
 
-  swarm.on('connection', onsocket)
-  swarm.listen()
 
   for (const key of cores) await downloadCore(key)
   for (const key of bees) await downloadBee(key)
