@@ -209,6 +209,7 @@ function update () {
         '-',
         crayon.green(core.id),
         crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
+        crayon.yellow(toMb(core.byteLength) + ','),
         crayon.yellow(core.peers.length) + ' peers,',
         crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
         crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
@@ -228,6 +229,7 @@ function update () {
         '-',
         crayon.green(core.id),
         crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
+        crayon.yellow(toMb(core.byteLength) + ','),
         crayon.yellow(core.peers.length) + ' peers,',
         crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
         crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
@@ -244,11 +246,12 @@ function update () {
       const id = HypercoreId.encode(drive.key)
       const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
       const blobsProgress = (drive.blobs?.core.contiguousLength || 0) + '/' + (drive.blobs?.core.length || 0)
-
+      const blobsBytes = drive.blobs?.core.byteLength || 0
       print(
         '-',
         crayon.green(id),
         crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
+        crayon.yellow(toMb(blobsBytes) + ','),
         crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
         crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
         crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
@@ -272,3 +275,7 @@ function onspeed (eventName, info, index, byteLength, from) {
 }
 
 function noop () {}
+
+function toMb (bytes) {
+  return `${Math.round(bytes / 1000 / 1000)}Mb`
+}
