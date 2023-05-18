@@ -209,7 +209,7 @@ function update () {
         '-',
         crayon.green(core.id),
         crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-        crayon.yellow(toMb(core.byteLength) + ','),
+        crayon.yellow(byteSize(core.byteLength) + ','),
         crayon.yellow(core.peers.length) + ' peers,',
         crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
         crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
@@ -229,7 +229,7 @@ function update () {
         '-',
         crayon.green(core.id),
         crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-        crayon.yellow(toMb(core.byteLength) + ','),
+        crayon.yellow(byteSize(core.byteLength) + ','),
         crayon.yellow(core.peers.length) + ' peers,',
         crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
         crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
@@ -251,7 +251,7 @@ function update () {
         '-',
         crayon.green(id),
         crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
-        crayon.yellow(toMb(blobsBytes) + ','),
+        crayon.yellow(byteSize(blobsBytes) + ','),
         crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
         crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
         crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
@@ -275,7 +275,3 @@ function onspeed (eventName, info, index, byteLength, from) {
 }
 
 function noop () {}
-
-function toMb (bytes) {
-  return `${Math.round(bytes / 1000 / 1000)}Mb`
-}
