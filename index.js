@@ -22,7 +22,7 @@ const argv = minimist(process.argv.slice(2), {
     core: 'c',
     bee: 'b',
     drive: 'd',
-    seeder: 's'
+    seeder: 's',
     list: 'l'
   }
 })
@@ -77,7 +77,6 @@ async function start () {
     const list = configs.parse(file, { split: ' ', length: 2 })
 
     for (const [type, key] of list) {
-
       // TODO: simplify
       if (type === 'list') lists.push(key)
       else if (type === 'core' || type === 'key') cores.push(key)
