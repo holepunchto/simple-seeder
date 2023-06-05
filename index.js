@@ -11,9 +11,9 @@ const goodbye = require('graceful-goodbye')
 const fs = require('fs')
 const configs = require('tiny-configs')
 const crayon = require('tiny-crayon')
-const speedometer = require('speedometer')
 const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
+const Tracker = require('./lib/tracker.js')
 const menu = require('./menu.js')
 
 const argv = minimist(process.argv.slice(2), {
@@ -27,45 +27,46 @@ const argv = minimist(process.argv.slice(2), {
   }
 })
 
-const tracking = {
+// const types = ['core', 'bee', 'drive', 'seeder']
+const tracker = new Tracker()
+const tracking = { // TODO: delete this
   intervalId: null,
   output: '',
   notifs: {},
   swarm: null,
-  lists: [],
-  cores: [],
-  bees: [],
-  drives: [],
-  seeders: []
+  resources: []
 }
 
-start().catch(err => {
+const secretKey = argv['secret-key']
+const store = new Corestore(argv.storage || './corestore')
+
+let swarm = null
+
+main().catch(err => {
   console.error(err)
   process.exit(1)
 })
 
-async function start () {
-  const secretKey = argv['secret-key']
-  const store = new Corestore(argv.storage || './corestore')
-  const port = argv.port
-
+async function main () {
   if (argv.menu) {
-    menu(argv.menu, { store })
+    await menu(argv.menu, { store })
     return
   }
 
-  const dht = new DHT({ port })
-  const swarm = new Hyperswarm({
+  const dht = new DHT({ port: argv.port })
+  swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
     keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
     dht
   })
+  goodbye(() => swarm.destroy())
 
   tracking.swarm = swarm
 
   swarm.on('connection', onsocket)
   swarm.listen()
 
+  // TODO: simplify
   const lists = [].concat(argv.list || [])
   const cores = [].concat(argv.core || argv.key || [])
   const bees = [].concat(argv.bee || [])
@@ -77,7 +78,6 @@ async function start () {
     const list = configs.parse(file, { split: ' ', length: 2 })
 
     for (const [type, key] of list) {
-      // TODO: simplify
       if (type === 'list') lists.push(key)
       else if (type === 'core' || type === 'key') cores.push(key)
       else if (type === 'bee') bees.push(key)
@@ -87,136 +87,136 @@ async function start () {
     }
   }
 
-  for (const key of lists) {
-    const bee = await downloadLists(key)
-
-    if (argv['dry-run']) continue
-
-    for (const type of ['core', 'bee', 'drive', 'seeder']) {
-      const list = bee.sub(type, { keyEncoding: 'utf-8', valueEncoding: 'json' })
-
-      for await (const entry of list.createReadStream()) {
-        // TODO: simplify
-        if (type === 'core') cores.push(entry.key)
-        else if (type === 'bee') bees.push(entry.key)
-        else if (type === 'drive') drives.push(entry.key)
-        else if (type === 'seeder') seeders.push(entry.key)
-        else throw new Error('Invalid seed type: ' + type + ' for ' + entry.key)
-      }
-    }
-  }
-
+  for (const key of lists) await downloadLists(key)
   // TODO: dedup keys, in case having too many external lists where there are more chances to repeat resources
-
   for (const key of cores) await downloadCore(key)
   for (const key of bees) await downloadBee(key)
   for (const key of drives) await downloadDrive(key)
+  for (const key of seeders) await downloadSeeder(key)
 
-  for (const key of seeders) {
-    const publicKey = HypercoreId.decode(key)
-    const id = HypercoreId.encode(publicKey)
-    const keyPair = await store.createKeyPair('simple-seeder-swarm@' + id)
-    const sw = new Seeders(publicKey, { dht: swarm.dht, keyPair })
-
-    tracking.seeders.push(sw)
-
-    sw.join()
-    sw.on('connection', onsocket)
-    sw.on('update', function (record) {
-      tracking.notifs[id] = record
-    })
-
-    goodbye(() => sw.destroy())
-
-    if (!drives.includes(key)) {
-      await downloadDrive(key, false)
-    }
-  }
-
-  async function downloadLists (core, announce, { track = true } = {}) {
-    const bee = await downloadBee(core, announce, { track: false })
-
-    if (track) {
-      // TODO: reuse info + onspeed maker
-      const info = { bee, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
-      bee.core.on('download', onspeed.bind(null, 'download', info))
-      bee.core.on('upload', onspeed.bind(null, 'upload', info))
-      tracking.lists.push(info)
-    }
-
-    return bee
-  }
-
-  async function downloadDrive (key, announce) {
-    const drive = new Hyperdrive(store, HypercoreId.decode(key))
-
-    drive.on('blobs', blobs => downloadCore(blobs.core, false, { track: false }))
-    downloadBee(drive.core, announce, { track: false })
-
-    const info = { drive, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
-    drive.core.on('download', onspeed.bind(null, 'download', info))
-    drive.core.on('upload', onspeed.bind(null, 'upload', info))
-    drive.on('blobs', blobs => {
-      blobs.core.on('download', onspeed.bind(null, 'download', info))
-      blobs.core.on('upload', onspeed.bind(null, 'upload', info))
-    })
-
-    await drive.ready()
-    tracking.drives.push(info)
-  }
-
-  async function downloadBee (core, announce, { track = true } = {}) {
-    core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
-
-    const bee = new Hyperbee(core)
-    await bee.ready()
-
-    if (track) {
-      const info = { bee, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
-      core.on('download', onspeed.bind(null, 'download', info))
-      core.on('upload', onspeed.bind(null, 'upload', info))
-      tracking.bees.push(info)
-    }
-
-    await downloadCore(core, announce, { track: false })
-
-    return bee
-  }
-
-  async function downloadCore (core, announce, { track = true } = {}) {
-    core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
-
-    await core.ready()
-
-    if (track) {
-      const info = { core, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
-      core.on('download', onspeed.bind(null, 'download', info))
-      core.on('upload', onspeed.bind(null, 'upload', info))
-      tracking.cores.push(info)
-    }
-
-    if (announce !== false) {
-      const done = core.findingPeers()
-      swarm.join(core.discoveryKey, { client: true, server: !argv.backup })
-      swarm.flush().then(done, done)
-    }
-
-    core.download()
-  }
-
-  goodbye(() => swarm.destroy())
-
-  function onsocket (socket) {
-    socket.on('error', noop)
-    store.replicate(socket)
-  }
+  // TODO: use lists watcher to add/remove resources from tracker
+  watcher() // TODO: safety catch
 
   tracking.intervalId = setInterval(update, argv.i || 5000)
   update()
 }
 
+async function downloadCore (core, announce, { track = true, parent = null } = {}) {
+  core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
+
+  await core.ready()
+
+  if (track) tracker.add('core', core, { speedometer: core })
+
+  if (announce !== false) {
+    const done = core.findingPeers()
+    swarm.join(core.discoveryKey, { client: true, server: !argv.backup })
+    swarm.flush().then(done, done)
+  }
+
+  core.download()
+}
+
+async function downloadBee (core, announce, { track = true, watch = false } = {}) {
+  core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
+
+  const bee = new Hyperbee(core)
+  const watcher = watch ? bee.watch() : null
+  await bee.ready()
+
+  if (track) tracker.add('bee', bee, { speedometer: bee.core })
+
+  await downloadCore(core, announce, { track: false, parent: bee })
+
+  return { bee, watcher }
+}
+
+async function downloadDrive (key, announce) {
+  const drive = new Hyperdrive(store, HypercoreId.decode(key))
+  await drive.ready()
+
+  const info = tracker.add('drive', drive, { speedometer: drive.core })
+  if (drive.blobs) Tracker.speedometer(drive.blobs.core, info)
+  else drive.on('blobs', blobs => Tracker.speedometer(blobs.core, info))
+
+  downloadBee(drive.core, announce, { track: false })
+  if (drive.blobs) downloadCore(drive.blobs.core, false, { track: false, parent: drive })
+  else drive.on('blobs', blobs => downloadCore(blobs.core, false, { track: false, parent: drive }))
+}
+
+async function downloadSeeder (key) {
+  const publicKey = HypercoreId.decode(key)
+  const id = HypercoreId.encode(publicKey)
+  const keyPair = await store.createKeyPair('simple-seeder-swarm@' + id)
+  const sw = new Seeders(publicKey, { dht: swarm.dht, keyPair })
+
+  tracker.add('seeder', sw)
+
+  sw.join()
+  sw.on('connection', onsocket)
+  sw.on('update', function (record) {
+    tracking.notifs[id] = record
+  })
+
+  const unregister = goodbye(() => sw.destroy())
+  sw.on('close', () => unregister())
+
+  if (!drives.includes(key)) {
+    await downloadDrive(key, false)
+  }
+}
+
+async function downloadLists (core, announce) {
+  const { bee, watcher } = await downloadBee(core, announce, { track: false, watch: !argv['dry-run'] })
+
+  tracker.add('list', bee, { speedometer: bee.core, watcher })
+
+  return bee
+}
+
+async function watcher () {
+  const lists = tracker.getByType('list')
+  if (!lists.length) return
+
+  for (const { list, watcher } of lists) {
+    if (!watcher) continue
+    // watching(list, watcher) // TODO: safety catch
+  }
+}
+
+/* async function watching (bee, watcher) {
+  for await (const [current] of watcher) {
+    for await (const entry of current.createReadStream()) {
+      const resources = tracker.getByType(entry.value.type)
+      const resource = resources.find(filter(entry))
+
+      if (!resource) {
+
+      }
+
+      if (resource) {
+        // TODO: skip same
+      }
+
+      if (resource) {
+        // Resource already exists
+        // TODO: compare "entry" with "resource" to see what changed i.e. type, description, seeder enabled/disabled, etc
+      } else {
+        // New resource
+      }
+    }
+  }
+
+  function filter (entry) {
+    return function (r) {
+      const id = r.id || HypercoreId.encode(r.seedKeyPair.publicKey)
+      return id === entry.key
+    }
+  }
+} */
+
 function update () {
-  const { swarm, lists, seeders, cores, bees, drives } = tracking
+  const { swarm } = tracking
   const { dht } = swarm
 
   let output = ''
@@ -233,22 +233,17 @@ function update () {
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
   print()
 
+  const lists = tracker.getByType('list')
+  const seeders = tracker.getByType('seeder')
+  const cores = tracker.getByType('core')
+  const bees = tracker.getByType('bee')
+  const drives = tracker.getByType('drive')
+
   if (lists.length) {
     print('Lists')
-    for (const { bee, blocks, network } of lists) {
-      const { core } = bee
-
-      // TODO: reuse
-      print(
-        '-',
-        crayon.green(core.id),
-        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-        crayon.yellow(core.peers.length) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
-        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
-      )
+    for (const { list, blocks, network } of lists) {
+      // TODO: disable byte size?
+      output += formatResource(list.core, null, { blocks, network })
     }
     print()
   }
@@ -278,17 +273,7 @@ function update () {
   if (cores.length) {
     print('Cores')
     for (const { core, blocks, network } of cores) {
-      print(
-        '-',
-        crayon.green(core.id),
-        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-        crayon.yellow(byteSize(core.byteLength) + ','),
-        crayon.yellow(core.peers.length) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
-        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
-      )
+      output += formatResource(core, null, { blocks, network })
     }
     print()
   }
@@ -296,19 +281,7 @@ function update () {
   if (bees.length) {
     print('Bees')
     for (const { bee, blocks, network } of bees) {
-      const { core } = bee
-
-      print(
-        '-',
-        crayon.green(core.id),
-        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-        crayon.yellow(byteSize(core.byteLength) + ','),
-        crayon.yellow(core.peers.length) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
-        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
-      )
+      output += formatResource(bee.core, null, { blocks, network })
     }
     print()
   }
@@ -316,21 +289,7 @@ function update () {
   if (drives.length) {
     print('Drives')
     for (const { drive, blocks, network } of drives) {
-      const id = HypercoreId.encode(drive.key)
-      const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
-      const blobsProgress = (drive.blobs?.core.contiguousLength || 0) + '/' + (drive.blobs?.core.length || 0)
-      const blobsBytes = drive.blobs?.core.byteLength || 0
-      print(
-        '-',
-        crayon.green(id),
-        crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
-        crayon.yellow(byteSize(blobsBytes) + ','),
-        crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
-        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
-      )
+      output += formatResource(drive.core, drive.blobs, { blocks, network, isDrive: true })
     }
     print()
   }
@@ -342,9 +301,35 @@ function update () {
   process.stdout.write(output)
 }
 
-function onspeed (eventName, info, index, byteLength, from) {
-  info.blocks[eventName](1)
-  info.network[eventName](byteLength)
+function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {
+  const progress = [crayon.yellow(core.contiguousLength + '/' + core.length)]
+  if (isDrive) progress.push(crayon.yellow((blobs?.core.contiguousLength || 0) + '/' + (blobs?.core.length || 0)))
+
+  const byteLength = [crayon.yellow(byteSize(core.byteLength))]
+  if (isDrive) byteLength.push(crayon.yellow(byteSize(blobs?.core.byteLength || 0)))
+
+  const peers = [crayon.yellow(core.peers.length)]
+  if (isDrive) peers.push(crayon.yellow(blobs?.core.peers.length || 0))
+
+  return format(
+    '-',
+    crayon.green(core.id),
+    progress.join(' + ') + ' blks,',
+    byteLength.join(' + ') + ',',
+    peers.join(' + ') + ' peers,',
+    crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
+    crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
+    crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
+    crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
+  )
+}
+
+function format (...args) {
+  return args.join(' ') + '\n'
+}
+
+function onsocket (socket) {
+  store.replicate(socket)
 }
 
 function noop () {}

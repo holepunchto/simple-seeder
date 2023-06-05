@@ -1,18 +1,9 @@
 const Hyperbee = require('hyperbee')
-const SubEncoder = require('sub-encoder')
 const HypercoreId = require('hypercore-id-encoding')
 const crayon = require('tiny-crayon')
 const Menu = require('tiny-menu')
 
 const types = ['core', 'bee', 'drive', 'seeder']
-
-const enc = new SubEncoder({ keyEncoding: 'utf-8' })
-const subs = {
-  core: enc.sub('core'),
-  bee: enc.sub('bee'),
-  drive: enc.sub('drive'),
-  seeder: enc.sub('seeder')
-}
 
 module.exports = async function (key, { store }) {
   const storeOptions = {}
@@ -24,7 +15,7 @@ module.exports = async function (key, { store }) {
   }
 
   const core = store.get(storeOptions)
-  const bee = new Hyperbee(core, { keyEncoding: enc, valueEncoding: 'json' })
+  const bee = new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json' })
   await bee.ready()
 
   const menu = new Menu({
@@ -72,14 +63,15 @@ module.exports = async function (key, { store }) {
           return menu.show()
         }
 
+        let id = null
         try {
-          HypercoreId.decode(key)
+          id = HypercoreId.encode(HypercoreId.decode(key))
         } catch {
           console.log(crayon.red('Invalid key format: ' + key))
           return
         }
 
-        const current = await bee.get(key, { keyEncoding: subs[type], wait: false })
+        const current = await bee.get(id, { wait: false })
         if (current) {
           console.log(crayon.red('Key already exists'))
           return
@@ -91,7 +83,19 @@ module.exports = async function (key, { store }) {
           return menu.show()
         }
 
-        await bee.put(key, { description }, { keyEncoding: subs[type] })
+        let seeder = false
+
+        if (type === 'drive') {
+          const addSeeder = await this.ask('Enable swarm seeder? [Y/n] ')
+          if (addSeeder === null) {
+            console.log()
+            return menu.show()
+          }
+
+          seeder = addSeeder.toLowerCase() === 'y'
+        }
+
+        await bee.put(id, { type, description, seeder })
 
         console.log(crayon.green('Item added'))
         console.log()
@@ -122,12 +126,13 @@ module.exports = async function (key, { store }) {
       let count = 0
 
       for (const type of types) {
-        const range = subs[type].range()
+        for await (const entry of bee.createReadStream()) {
+          if (type !== entry.value.type) continue
 
-        for await (const entry of bee.createReadStream(range)) {
           count++
-          const text = crayon.yellow(count + '.') + ' ' + crayon.magenta(type.toUpperCase()) + ' ' + crayon.green(entry.key) + ' ' + crayon.gray(entry.value.description)
-          const value = { type, entry }
+          const text = crayon.yellow(count + '.') + ' ' + crayon.magenta(entry.value.type.toUpperCase()) + ' ' + crayon.green(entry.key) + ' ' + crayon.gray(entry.value.description)
+          const value = { entry }
+
           this.add(count, text, { value, custom: true, disabled: list.$action === 1 })
         }
       }
@@ -155,9 +160,9 @@ module.exports = async function (key, { store }) {
 
       // Delete
       if (list.$action === 3) {
-        const { type, entry } = value
+        const { entry } = value
 
-        await bee.del(entry.key, { keyEncoding: subs[type] })
+        await bee.del(entry.key)
 
         console.log(crayon.red('Item removed'))
         console.log()
@@ -167,12 +172,22 @@ module.exports = async function (key, { store }) {
 
       // Edit
       if (list.$action === 4) {
-        const { type, entry } = value
+        const { entry } = value
+
+        // TODO: maybe ask which property to edit?
 
         const description = await this.ask('New description: ')
         if (description === null) return
 
-        await bee.put(entry.key, { description }, { keyEncoding: subs[type] })
+        const addSeeder = await this.ask('Enable swarm seeder? [Y/n] ')
+        if (addSeeder === null) {
+          console.log()
+          return menu.show()
+        }
+
+        const seeder = addSeeder.toLowerCase() === 'y'
+
+        await bee.put(entry.key, { ...entry.value, description, seeder })
 
         console.log(crayon.green('Item updated'))
         console.log()
