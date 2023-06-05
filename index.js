@@ -87,12 +87,12 @@ async function main () {
     }
   }
 
-  for (const key of lists) await downloadLists(key)
   // TODO: dedup keys, in case having too many external lists where there are more chances to repeat resources
   for (const key of cores) await downloadCore(key)
   for (const key of bees) await downloadBee(key)
   for (const key of drives) await downloadDrive(key)
-  for (const key of seeders) await downloadSeeder(key)
+  for (const key of seeders) await downloadSeeder(key, { drives })
+  for (const key of lists) await downloadLists(key)
 
   // TODO: use lists watcher to add/remove resources from tracker
   watcher() // TODO: safety catch
@@ -144,7 +144,7 @@ async function downloadDrive (key, announce) {
   else drive.on('blobs', blobs => downloadCore(blobs.core, false, { track: false, parent: drive }))
 }
 
-async function downloadSeeder (key) {
+async function downloadSeeder (key, { drives }) {
   const publicKey = HypercoreId.decode(key)
   const id = HypercoreId.encode(publicKey)
   const keyPair = await store.createKeyPair('simple-seeder-swarm@' + id)
@@ -180,12 +180,12 @@ async function watcher () {
 
   for (const { list, watcher } of lists) {
     if (!watcher) continue
-    // watching(list, watcher) // TODO: safety catch
+    watching(list, watcher) // TODO: safety catch
   }
 }
 
-/* async function watching (bee, watcher) {
-  for await (const [current] of watcher) {
+async function watching (bee, watcher) {
+  /* for await (const [current] of watcher) {
     for await (const entry of current.createReadStream()) {
       const resources = tracker.getByType(entry.value.type)
       const resource = resources.find(filter(entry))
@@ -212,8 +212,8 @@ async function watcher () {
       const id = r.id || HypercoreId.encode(r.seedKeyPair.publicKey)
       return id === entry.key
     }
-  }
-} */
+  } */
+}
 
 function update () {
   const { swarm } = tracking
@@ -331,5 +331,3 @@ function format (...args) {
 function onsocket (socket) {
   store.replicate(socket)
 }
-
-function noop () {}
