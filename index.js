@@ -68,7 +68,7 @@ async function main () {
 
   // TODO: simplify
   const lists = [].concat(argv.list || [])
-  const cores = [].concat(argv.core || argv.key || [])
+  const cores = [].concat(argv.core || []).concat(argv.key || [])
   const bees = [].concat(argv.bee || [])
   const drives = [].concat(argv.drive || [])
   const seeders = [].concat(argv.seeder || [])
