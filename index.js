@@ -11,7 +11,7 @@ const crayon = require('tiny-crayon')
 const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
 const debounceify = require('debounceify')
-const Tracker = require('./lib/tracker.js')
+const SimpleSeeder = require('./lib/simple-seeder.js')
 const menu = require('./menu.js')
 
 const argv = minimist(process.argv.slice(2), {
@@ -53,7 +53,7 @@ async function main () {
   swarm.on('connection', onsocket)
   swarm.listen()
 
-  tracker = new Tracker(store, swarm)
+  tracker = new SimpleSeeder(store, swarm)
   const seeds = []
 
   for (const type of ['drive', 'seeder', 'bee', 'core', 'list']) {
