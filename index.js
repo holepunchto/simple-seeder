@@ -53,7 +53,7 @@ async function main () {
   swarm.on('connection', onsocket)
   swarm.listen()
 
-  tracker = new SimpleSeeder(store, swarm)
+  tracker = new SimpleSeeder(store, swarm, { backup: argv.backup })
   const seeds = []
 
   for (const type of ['drive', 'seeder', 'bee', 'core', 'list']) {
@@ -71,6 +71,7 @@ async function main () {
     if (type === 'seeder' && seeds.find(s => s.type === 'drive' && s.key === key)) continue
     const seeders = !!(type === 'drive' && seeds.find(s => s.type === 'seeder' && s.key === key))
 
+    // TODO: should skip errors if repeated
     await tracker.add(key, type, { seeders })
   }
 
@@ -78,7 +79,7 @@ async function main () {
   goodbye(() => clearInterval(intervalId)) // Explicit cleanup
   ui()
 
-  const resource = tracker.find(r => r.type === 'list')
+  const resource = tracker.filter(r => r.type === 'list')[0]
   if (resource && !argv['dry-run']) {
     const list = resource.instance
     // TODO: catch errors somewhere
@@ -89,7 +90,7 @@ async function main () {
 }
 
 async function update (tracker, list) {
-  for (const [, info] of tracker.resources) {
+  for (const info of tracker.resources.values()) {
     if (!info.source) continue // List does not control resources from argv or file
 
     if (await list.get(info.key) === null) {
@@ -128,11 +129,11 @@ function ui () {
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
   print()
 
-  const cores = tracker.getByType('core')
-  const bees = tracker.getByType('bee')
-  const drives = tracker.getByType('drive')
+  const cores = tracker.filter(r => r.type === 'core')
+  const bees = tracker.filter(r => r.type === 'bee')
+  const drives = tracker.filter(r => r.type === 'drive')
   const seeders = drives.filter(r => !!r.seeders)
-  const lists = tracker.getByType('list')
+  const lists = tracker.filter(r => r.type === 'list')
 
   if (lists.length) {
     print('Lists')
