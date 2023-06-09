@@ -21,7 +21,7 @@ You use those args:
 ```
 
 ```
-simple-seeder -c <hypercore key> -c <hypercore key 2>
+simple-seeder -c <key> -c <another-key>
 ```
 
 The `seeders` option is only for drives, and must use the same drive key to enable it.
@@ -31,10 +31,10 @@ A file containing the seeds list:
 
 `seeds.txt`
 ```
-core <hypercore key>
-bee <hyperbee key>
-drive <hyperdrive key>
-seeders <hyperdrive key>
+core <key>
+bee <key>
+drive <key>
+seeders <key>
 ```
 
 ```
@@ -44,16 +44,11 @@ simple-seeder --file ./seeds.txt
 #### List
 A Hyperbee list that can receive updates in real-time.
 
-Manage the list with `simple-seeder --menu`.
+Manage the list with `simple-seeder --menu [key]`
 
 The menu will also show you the Hyperbee list key that you can use:
 ```
-simple-seeder --list <hyperbee list key>
-```
-
-In the menu you can generate more list keys, so you can manage different lists:
-```
-simple-seeder --menu <key>
+simple-seeder --list <key>
 ```
 
 ## License
