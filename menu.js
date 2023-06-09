@@ -5,7 +5,7 @@ const Menu = require('tiny-menu')
 
 const types = ['core', 'bee', 'drive', 'seeder']
 
-module.exports = async function (key, { store }) {
+module.exports = async function (key, { store, swarm }) {
   const storeOptions = {}
 
   if (typeof key === 'string') {
@@ -17,6 +17,10 @@ module.exports = async function (key, { store }) {
   const core = store.get(storeOptions)
   const bee = new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json' })
   await bee.ready()
+
+  const done = bee.core.findingPeers()
+  swarm.join(bee.core.discoveryKey)
+  swarm.flush().then(done, done)
 
   const menu = new Menu({
     clear: false,
@@ -72,7 +76,7 @@ module.exports = async function (key, { store }) {
         }
 
         const current = await bee.get(id, { wait: false })
-        if (current) {
+        if (current && current.value.type === type) {
           console.log(crayon.red('Key already exists'))
           return
         }
@@ -86,12 +90,13 @@ module.exports = async function (key, { store }) {
         let seeder = false
 
         if (type === 'drive') {
-          const addSeeder = await this.ask('Enable swarm seeder? [Y/n] ')
+          const addSeeder = await this.ask('Enable swarm seeders? [Y/n] ')
           if (addSeeder === null) {
             console.log()
             return menu.show()
           }
 
+          // TODO: rename it to "seeders"
           seeder = addSeeder.toLowerCase() === 'y'
         }
 

@@ -30,7 +30,6 @@ const store = new Corestore(argv.storage || './corestore')
 let swarm = null
 let tracker = null
 let stdout = ''
-const notifs = {} // TODO: seeders notifications (should be in lib)
 
 main().catch(err => {
   console.error(err)
@@ -38,40 +37,29 @@ main().catch(err => {
 })
 
 async function main () {
-  if (argv.menu) {
-    await menu(argv.menu, { store })
-    return
-  }
-
   swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
     keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
     dht: new DHT({ port: argv.port })
   })
-  goodbye(() => swarm.destroy())
-
   swarm.on('connection', onsocket)
   swarm.listen()
+  goodbye(() => swarm.destroy())
+
+  if (argv.menu) {
+    await menu(argv.menu, { store, swarm })
+    return
+  }
+
+  const seeds = await load()
 
   tracker = new SimpleSeeder(store, swarm, { backup: argv.backup })
-  const seeds = []
-
-  for (const type of ['drive', 'seeder', 'bee', 'core', 'list']) {
-    const group = [].concat(argv[type] || [])
-    for (const key of group) seeds.push({ key: HypercoreId.normalize(key), type })
-  }
-
-  if (argv.file) {
-    const file = await fs.promises.readFile(argv.file)
-    const group = configs.parse(file, { split: ' ', length: 2 })
-    for (const [type, key] of group) seeds.push({ key: HypercoreId.normalize(key), type })
-  }
+  goodbye(() => tracker.destroy())
 
   for (const { key, type } of seeds) {
     if (type === 'seeder' && seeds.find(s => s.type === 'drive' && s.key === key)) continue
     const seeders = !!(type === 'drive' && seeds.find(s => s.type === 'seeder' && s.key === key))
 
-    // TODO: should skip errors if repeated
     await tracker.add(key, type, { seeders })
   }
 
@@ -79,9 +67,9 @@ async function main () {
   goodbye(() => clearInterval(intervalId)) // Explicit cleanup
   ui()
 
-  const resource = tracker.filter(r => r.type === 'list')[0]
-  if (resource && !argv['dry-run']) {
-    const list = resource.instance
+  const lists = tracker.filter(r => r.type === 'list')
+  if (lists[0] && !argv['dry-run']) {
+    const list = lists[0].instance
     // TODO: catch errors somewhere
     const debounced = debounceify(update.bind(null, tracker, list))
     list.core.on('append', debounced)
@@ -89,26 +77,81 @@ async function main () {
   }
 }
 
-async function update (tracker, list) {
-  for (const info of tracker.resources.values()) {
-    if (!info.source) continue // List does not control resources from argv or file
+async function load () {
+  const seeds = []
+  const addSeed = (key, type) => seeds.push({ key: HypercoreId.normalize(key), type })
 
-    if (await list.get(info.key) === null) {
+  if (argv.file) {
+    console.log('Loading seeds from file\n')
+
+    const file = await fs.promises.readFile(argv.file)
+    const group = configs.parse(file, { split: ' ', length: 2 })
+    for (const [type, key] of group) {
+      if (type === 'list') throw new Error('List type is not supported in file')
+      addSeed(key, type)
+    }
+
+    return seeds
+  }
+
+  if (argv.list) {
+    console.log('Loading seeds from list\n')
+
+    const group = [].concat(argv.list || [])
+    if (group.length > 1) throw new Error('Max lists limit is one')
+    for (const key of group) addSeed(key, 'list')
+
+    return seeds
+  }
+
+  console.log('Loading seeds from args\n')
+
+  for (const type of ['core', 'bee', 'drive', 'seeder']) {
+    const group = [].concat(argv[type] || [])
+    for (const key of group) addSeed(key, type)
+  }
+
+  return seeds
+}
+
+async function update (tracker, list) {
+  const snap = list.snapshot()
+
+  for (const info of tracker.values()) {
+    if (info.external) continue // List does not control resources from argv or file, including itself
+
+    const e = await snap.get(info.key)
+
+    if (e === null || e.value.type !== info.type) {
       // console.log('Update (remove)', info.key)
       await tracker.remove(info.key)
     }
   }
 
-  for await (const e of list.createReadStream()) {
+  for await (const e of snap.createReadStream()) {
     if (tracker.has(e.key)) {
-      // console.log('Update (change)', e.key)
-      // const info = tracker.get(e.key)
-      // TODO: check if seeders changed, announce, etc
+      const info = tracker.get(e.key)
+
+      if (!!info.seeders !== e.value.seeder) {
+        // console.log('Update (change seeders)', e.key)
+
+        // Unsafe because SimpleSeeder should have a helper for this like tracker.change(key, newOptions)
+        if (e.value.seeder) {
+          if (info.seeders) throw new Error('Seeders was already enabled') // Should not happen
+          info.seeders = await tracker._createSeeders(HypercoreId.decode(info.key))
+        } else {
+          await info.seeders.destroy()
+          info.seeders = null
+        }
+      }
+
       continue
     }
 
-    // console.log('Update (add)', e.key)
-    await tracker.add(e.key, e.value.type, { seeders: e.value.seeder, source: 'list' })
+    if (e.value.type === 'list') continue // List of lists is not supported
+
+    // console.log('Update (add)', e.key, e.value)
+    await tracker.add(e.key, e.value.type, { seeders: e.value.seeder, external: false })
   }
 }
 
@@ -148,9 +191,8 @@ function ui () {
     print('Seeders')
     for (const { seeders: sw } of seeders) {
       const seedId = HypercoreId.encode(sw.seedKeyPair.publicKey)
-      const notif = notifs[seedId]
 
-      if (!notif) {
+      if (!sw.seeder) {
         print('-', crayon.green(seedId), crayon.gray('~'))
         continue
       }
@@ -158,9 +200,9 @@ function ui () {
       print(
         '-',
         crayon.green(seedId),
-        crayon.yellow(notif.seeds.length) + ' seeds,',
-        crayon.yellow(notif.core.length) + ' length,',
-        crayon.yellow(notif.core.fork) + ' fork'
+        crayon.yellow(sw.seeds.length) + ' seeds,',
+        crayon.yellow(sw.core.length) + ' length,',
+        crayon.yellow(sw.core.fork) + ' fork'
       )
     }
     print()
