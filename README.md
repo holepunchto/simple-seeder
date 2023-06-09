@@ -8,10 +8,6 @@ npm install -g simple-seeder
 
 ## Usage
 
-```
-simple-seeder -c <hypercore key> -c <hypercore key 2>
-```
-
 Three ways to load seeds, you can only use one approach per process:
 
 #### Args
@@ -24,14 +20,14 @@ You use those args:
 --seeder, -s <key>
 ```
 
+```
+simple-seeder -c <hypercore key> -c <hypercore key 2>
+```
+
 The `seeder` option is only for drives, and must use the same drive key to enable it.
 
 #### File
 A file containing the seeds list:
-
-```
-simple-seeder --file ./seeds.txt
-```
 
 `seeds.txt`
 ```
@@ -39,6 +35,10 @@ core <hypercore key>
 bee <hyperbee key>
 drive <hyperdrive key>
 seeder <hyperdrive key>
+```
+
+```
+simple-seeder --file ./seeds.txt
 ```
 
 #### List
