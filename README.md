@@ -12,9 +12,9 @@ npm install -g simple-seeder
 simple-seeder -c <hypercore key> -c <hypercore key 2>
 ```
 
-Three ways to load seeds, you can only use one per process.
+Three ways to load seeds, you can only use one approach per process:
 
-## Args
+#### Args
 You use those args:
 
 ```
@@ -26,7 +26,7 @@ You use those args:
 
 The `seeder` option is only for drives, and must use the same drive key to enable it.
 
-## File
+#### File
 A file containing the seeds list:
 
 ```
@@ -41,7 +41,7 @@ drive <hyperdrive key>
 seeder <hyperdrive key>
 ```
 
-## List
+#### List
 A Hyperbee list that can receive updates in real-time.
 
 Manage the list with `simple-seeder --menu`.
@@ -52,7 +52,9 @@ simple-seeder --list <hyperbee list key>
 ```
 
 In the menu you can generate more list keys, so you can manage different lists:
-`simple-seeder --menu <key>`
+```
+simple-seeder --menu <key>
+```
 
 ## License
 
