@@ -12,7 +12,6 @@ const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
 const debounceify = require('debounceify')
 const SimpleSeeder = require('./lib/simple-seeder.js')
-const menu = require('./menu.js')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -47,7 +46,10 @@ async function main () {
   goodbye(() => swarm.destroy())
 
   if (argv.menu) {
+    const menu = require('./menu.js')
     await menu(argv.menu, { store, swarm })
+    console.log('Closing')
+    goodbye.exit()
     return
   }
 
