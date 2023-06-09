@@ -72,7 +72,6 @@ async function main () {
   const lists = tracker.filter(r => r.type === 'list')
   if (lists[0] && !argv['dry-run']) {
     const list = lists[0].instance
-    // TODO: catch errors somewhere
     const debounced = debounceify(update.bind(null, tracker, list))
     list.core.on('append', debounced)
     await debounced()
