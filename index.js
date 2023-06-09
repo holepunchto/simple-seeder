@@ -62,7 +62,7 @@ async function main () {
     if (type === 'seeder' && seeds.find(s => s.type === 'drive' && s.key === key)) continue
     const seeders = !!(type === 'drive' && seeds.find(s => s.type === 'seeder' && s.key === key))
 
-    await tracker.add(key, type, { seeders })
+    await tracker.add(key, { type, seeders })
   }
 
   const intervalId = setInterval(ui, argv.i || 5000)
@@ -119,41 +119,24 @@ async function load () {
 async function update (tracker, list) {
   const snap = list.snapshot()
 
-  for (const info of tracker.values()) {
-    if (info.external) continue // List does not control resources from argv or file, including itself
+  try {
+    for (const info of tracker.values()) {
+      if (info.external) continue // List does not control resources from argv or file, including itself
 
-    const e = await snap.get(info.key)
-
-    if (e === null || e.value.type !== info.type) {
-      // console.log('Update (remove)', info.key)
-      await tracker.remove(info.key)
-    }
-  }
-
-  for await (const e of snap.createReadStream()) {
-    if (tracker.has(e.key)) {
-      const info = tracker.get(e.key)
-
-      if (!!info.seeders !== e.value.seeder) {
-        // console.log('Update (change seeders)', e.key)
-
-        // Unsafe because SimpleSeeder should have a helper for this like tracker.change(key, newOptions)
-        if (e.value.seeder) {
-          if (info.seeders) throw new Error('Seeders was already enabled') // Should not happen
-          info.seeders = await tracker._createSeeders(HypercoreId.decode(info.key))
-        } else {
-          await info.seeders.destroy()
-          info.seeders = null
-        }
+      if (await snap.get(info.key) === null) {
+        // console.log('Update (remove)', info.key)
+        await tracker.remove(info.key)
       }
-
-      continue
     }
 
-    if (e.value.type === 'list') continue // List of lists is not supported
+    for await (const e of snap.createReadStream()) {
+      if (e.value.type === 'list') continue // List of lists is not supported
 
-    // console.log('Update (add)', e.key, e.value)
-    await tracker.add(e.key, e.value.type, { seeders: e.value.seeder, external: false })
+      // console.log('Update (put)', e.key, e.value)
+      await tracker.put(e.key, { ...e.value, external: false })
+    }
+  } finally {
+    await snap.close()
   }
 }
 

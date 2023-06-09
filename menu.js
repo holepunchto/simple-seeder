@@ -3,7 +3,7 @@ const HypercoreId = require('hypercore-id-encoding')
 const crayon = require('tiny-crayon')
 const Menu = require('tiny-menu')
 
-const types = ['core', 'bee', 'drive', 'seeder']
+const types = ['core', 'bee', 'drive']
 
 module.exports = async function (key, { store, swarm }) {
   const storeOptions = {}
@@ -87,7 +87,7 @@ module.exports = async function (key, { store, swarm }) {
           return menu.show()
         }
 
-        let seeder = false
+        let seeders = false
 
         if (type === 'drive') {
           const addSeeder = await this.ask('Enable swarm seeders? [Y/n] ')
@@ -96,11 +96,10 @@ module.exports = async function (key, { store, swarm }) {
             return menu.show()
           }
 
-          // TODO: rename it to "seeders"
-          seeder = addSeeder.toLowerCase() === 'y'
+          seeders = addSeeder.toLowerCase() === 'y'
         }
 
-        await bee.put(id, { type, description, seeder })
+        await bee.put(id, { type, description, seeders })
 
         console.log(crayon.green('Item added'))
         console.log()
@@ -190,9 +189,9 @@ module.exports = async function (key, { store, swarm }) {
           return menu.show()
         }
 
-        const seeder = addSeeder.toLowerCase() === 'y'
+        const seeders = addSeeder.toLowerCase() === 'y'
 
-        await bee.put(entry.key, { ...entry.value, description, seeder })
+        await bee.put(entry.key, { ...entry.value, description, seeders })
 
         console.log(crayon.green('Item updated'))
         console.log()
