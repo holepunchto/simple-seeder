@@ -123,7 +123,6 @@ async function update (tracker, list) {
       if (info.external) continue // List does not control resources from argv or file, including itself
 
       if (await snap.get(info.key) === null) {
-        // console.log('Update (remove)', info.key)
         await tracker.remove(info.key)
       }
     }
@@ -131,7 +130,6 @@ async function update (tracker, list) {
     for await (const e of snap.createReadStream()) {
       if (e.value.type === 'list') continue // List of lists is not supported
 
-      // console.log('Update (put)', e.key, e.value)
       await tracker.put(e.key, { ...e.value, external: false })
     }
   } finally {
