@@ -28,9 +28,9 @@ module.exports = async function (key, { store, swarm }) {
       this.create(crayon.bgGray('Menu') + ' (list key): ' + crayon.green(HypercoreId.encode(core.key)))
 
       this.add(1, 'Listing')
-      this.add(2, 'Add')
-      this.add(3, 'Delete')
-      this.add(4, 'Edit\n')
+      this.add(2, 'Add', { disabled: !bee.core.writable })
+      this.add(3, 'Delete', { disabled: !bee.core.writable })
+      this.add(4, 'Edit\n', { disabled: !bee.core.writable })
 
       this.add(9, 'Generate new list\n')
 
