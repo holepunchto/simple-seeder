@@ -18,7 +18,7 @@ const argv = minimist(process.argv.slice(2), {
     core: 'c',
     bee: 'b',
     drive: 'd',
-    seeder: 's',
+    seeders: 's',
     list: 'l'
   }
 })
@@ -59,8 +59,8 @@ async function main () {
   goodbye(() => tracker.destroy())
 
   for (const { key, type } of seeds) {
-    if (type === 'seeder' && seeds.find(s => s.type === 'drive' && s.key === key)) continue
-    const seeders = !!(type === 'drive' && seeds.find(s => s.type === 'seeder' && s.key === key))
+    if (type === 'seeders' && seeds.find(s => s.type === 'drive' && s.key === key)) continue
+    const seeders = !!(type === 'drive' && seeds.find(s => s.type === 'seeders' && s.key === key))
 
     await tracker.add(key, { type, seeders })
   }
@@ -107,7 +107,7 @@ async function load () {
 
   console.log('Loading seeds from args\n')
 
-  for (const type of ['core', 'bee', 'drive', 'seeder']) {
+  for (const type of ['core', 'bee', 'drive', 'seeders']) {
     const group = [].concat(argv[type] || [])
     for (const key of group) addSeed(key, type)
   }

@@ -17,14 +17,14 @@ You use those args:
 --core, -c <key>
 --bee, -b <key>
 --drive, -d <key>
---seeder, -s <key>
+--seeders, -s <key>
 ```
 
 ```
 simple-seeder -c <hypercore key> -c <hypercore key 2>
 ```
 
-The `seeder` option is only for drives, and must use the same drive key to enable it.
+The `seeders` option is only for drives, and must use the same drive key to enable it.
 
 #### File
 A file containing the seeds list:
@@ -34,7 +34,7 @@ A file containing the seeds list:
 core <hypercore key>
 bee <hyperbee key>
 drive <hyperdrive key>
-seeder <hyperdrive key>
+seeders <hyperdrive key>
 ```
 
 ```

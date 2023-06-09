@@ -90,13 +90,13 @@ module.exports = async function (key, { store, swarm }) {
         let seeders = false
 
         if (type === 'drive') {
-          const addSeeder = await this.ask('Enable swarm seeders? [Y/n] ')
-          if (addSeeder === null) {
+          const addSeeders = await this.ask('Enable swarm seeders? [Y/n] ')
+          if (addSeeders === null) {
             console.log()
             return menu.show()
           }
 
-          seeders = addSeeder.toLowerCase() === 'y'
+          seeders = addSeeders.toLowerCase() === 'y'
         }
 
         await bee.put(id, { type, description, seeders })
@@ -183,13 +183,13 @@ module.exports = async function (key, { store, swarm }) {
         const description = await this.ask('New description: ')
         if (description === null) return
 
-        const addSeeder = await this.ask('Enable swarm seeder? [Y/n] ')
-        if (addSeeder === null) {
+        const addSeeders = await this.ask('Enable swarm seeder? [Y/n] ')
+        if (addSeeders === null) {
           console.log()
           return menu.show()
         }
 
-        const seeders = addSeeder.toLowerCase() === 'y'
+        const seeders = addSeeders.toLowerCase() === 'y'
 
         await bee.put(entry.key, { ...entry.value, description, seeders })
 
