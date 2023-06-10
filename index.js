@@ -25,6 +25,7 @@ const argv = minimist(process.argv.slice(2), {
 
 const secretKey = argv['secret-key']
 const store = new Corestore(argv.storage || './corestore')
+const dryRun = argv['dry-run']
 
 let swarm = null
 let tracker = null
@@ -70,7 +71,7 @@ async function main () {
   ui()
 
   const lists = tracker.filter(r => r.type === 'list')
-  if (lists[0] && !argv['dry-run']) {
+  if (lists[0] && !dryRun) {
     const list = lists[0].instance
     const debounced = debounceify(update.bind(null, tracker, list))
     list.core.on('append', debounced)
