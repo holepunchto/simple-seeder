@@ -4,7 +4,8 @@
   "description": "Dead simple seeder with zero bugs",
   "main": "index.js",
   "files": [
-    "index.js"
+    "index.js",
+    "lib/**.js"
   ],
   "bin": {
     "simple-seeder": "./index.js"
