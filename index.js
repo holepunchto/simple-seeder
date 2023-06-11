@@ -44,7 +44,7 @@ async function main () {
   })
   swarm.on('connection', onsocket)
   swarm.listen()
-  goodbye(() => swarm.destroy())
+  goodbye(() => swarm.destroy(), 1)
 
   if (argv.menu) {
     const menu = require('./menu.js')
@@ -75,6 +75,7 @@ async function main () {
     const list = lists[0].instance
     const debounced = debounceify(update.bind(null, tracker, list))
     list.core.on('append', debounced)
+    goodbye(() => list.core.off('append', debounced))
     await debounced()
   }
 }
