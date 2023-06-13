@@ -48,7 +48,7 @@ Manage the list with `simple-seeder --menu [key]`
 
 The menu will also show you the Hyperbee list key that you can use:
 ```
-simple-seeder --list <key>
+simple-seeder <key>
 ```
 
 ## License

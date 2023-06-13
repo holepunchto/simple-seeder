@@ -18,8 +18,7 @@ const argv = minimist(process.argv.slice(2), {
     core: 'c',
     bee: 'b',
     drive: 'd',
-    seeders: 's',
-    list: 'l'
+    seeders: 's'
   }
 })
 
@@ -97,12 +96,10 @@ async function load () {
     return seeds
   }
 
-  if (argv.list) {
+  if (argv._[0]) {
     console.log('Loading seeds from list\n')
 
-    const group = [].concat(argv.list || [])
-    if (group.length > 1) throw new Error('Max lists limit is one')
-    for (const key of group) addSeed(key, 'list')
+    addSeed(argv._[0], 'list')
 
     return seeds
   }
