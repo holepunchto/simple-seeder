@@ -72,7 +72,8 @@ async function main () {
   const lists = tracker.filter(r => r.type === 'list')
   if (lists[0] && !dryRun) {
     const list = lists[0].instance
-    const debounced = debounceify(update.bind(null, tracker, list))
+    const bound = tracker.update.bind(tracker, list)
+    const debounced = debounceify(bound)
     list.core.on('append', debounced)
     goodbye(() => list.core.off('append', debounced))
     await debounced()
@@ -112,28 +113,6 @@ async function load () {
   }
 
   return seeds
-}
-
-async function update (tracker, list) {
-  const snap = list.snapshot()
-
-  try {
-    for (const info of tracker.values()) {
-      if (info.external) continue // List does not control resources from argv or file, including itself
-
-      if (await snap.get(info.key) === null) {
-        await tracker.remove(info.key)
-      }
-    }
-
-    for await (const e of snap.createReadStream()) {
-      if (e.value.type === 'list') continue // List of lists is not supported
-
-      await tracker.put(e.key, { ...e.value, external: false })
-    }
-  } finally {
-    await snap.close()
-  }
 }
 
 function ui () {
