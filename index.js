@@ -1,168 +1,145 @@
 #!/usr/bin/env node
 
 const Corestore = require('corestore')
-const Hyperbee = require('hyperbee')
 const Hyperswarm = require('hyperswarm')
-const Hyperdrive = require('hyperdrive')
 const HypercoreId = require('hypercore-id-encoding')
-const Seeders = require('@hyperswarm/seeders')
 const minimist = require('minimist')
 const goodbye = require('graceful-goodbye')
 const fs = require('fs')
 const configs = require('tiny-configs')
 const crayon = require('tiny-crayon')
-const speedometer = require('speedometer')
 const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
+const debounceify = require('debounceify')
+const SimpleSeeder = require('./lib/simple-seeder.js')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
-    key: 'k',
     core: 'c',
     bee: 'b',
     drive: 'd',
-    seeder: 's'
+    seeders: 's',
+    list: 'l'
   }
 })
 
-const tracking = {
-  intervalId: null,
-  output: '',
-  notifs: {},
-  swarm: null,
-  cores: [],
-  bees: [],
-  drives: [],
-  seeders: []
-}
+const secretKey = argv['secret-key']
+const store = new Corestore(argv.storage || './corestore')
+const dryRun = argv['dry-run']
 
-start().catch(err => {
+let swarm = null
+let tracker = null
+let stdout = ''
+
+main().catch(err => {
   console.error(err)
   process.exit(1)
 })
 
-async function start () {
-  const secretKey = argv['secret-key']
-  const store = new Corestore(argv.storage || './corestore')
-  const port = argv.port
-
-  const dht = new DHT({ port })
-  const swarm = new Hyperswarm({
+async function main () {
+  swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
     keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
-    dht
+    dht: new DHT({ port: argv.port })
   })
-
-  tracking.swarm = swarm
-
-  const cores = [].concat(argv.core || argv.key || [])
-  const bees = [].concat(argv.bee || [])
-  const drives = [].concat(argv.drive || [])
-  const seeders = [].concat(argv.seeder || [])
-
-  if (argv.file) {
-    const seeds = await fs.promises.readFile(argv.file)
-    for (const [type, key] of configs.parse(seeds, { split: ' ', length: 2 })) {
-      if (type === 'core' || type === 'key') cores.push(key)
-      else if (type === 'bee') bees.push(key)
-      else if (type === 'drive') drives.push(key)
-      else if (type === 'seeder') seeders.push(key)
-      else throw new Error('Invalid seed type: ' + type)
-    }
-  }
-
   swarm.on('connection', onsocket)
   swarm.listen()
+  goodbye(() => swarm.destroy(), 1)
 
-  for (const key of cores) await downloadCore(key)
-  for (const key of bees) await downloadBee(key)
-  for (const key of drives) await downloadDrive(key)
-
-  for (const key of seeders) {
-    const publicKey = HypercoreId.decode(key)
-    const id = HypercoreId.encode(publicKey)
-    const keyPair = await store.createKeyPair('simple-seeder-swarm@' + id)
-    const sw = new Seeders(publicKey, { dht: swarm.dht, keyPair })
-
-    tracking.seeders.push(sw)
-
-    sw.join()
-    sw.on('connection', onsocket)
-    sw.on('update', function (record) {
-      tracking.notifs[id] = record
-    })
-
-    goodbye(() => sw.destroy())
-
-    if (!drives.includes(key)) {
-      await downloadDrive(key, false)
-    }
+  if (argv.menu) {
+    const menu = require('./menu.js')
+    await menu(argv.menu, { store, swarm })
+    console.log('Closing')
+    goodbye.exit()
+    return
   }
 
-  async function downloadDrive (key, announce) {
-    const drive = new Hyperdrive(store, HypercoreId.decode(key))
+  const seeds = await load()
 
-    drive.on('blobs', blobs => downloadCore(blobs.core, false, { track: false }))
-    downloadBee(drive.core, announce, { track: false })
+  tracker = new SimpleSeeder(store, swarm, { backup: argv.backup })
+  goodbye(() => tracker.destroy())
 
-    const info = { drive, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
-    drive.core.on('download', onspeed.bind(null, 'download', info))
-    drive.core.on('upload', onspeed.bind(null, 'upload', info))
-    drive.on('blobs', blobs => {
-      blobs.core.on('download', onspeed.bind(null, 'download', info))
-      blobs.core.on('upload', onspeed.bind(null, 'upload', info))
-    })
+  for (const { key, type } of seeds) {
+    if (type === 'seeders' && seeds.find(s => s.type === 'drive' && s.key === key)) continue
+    const seeders = !!(type === 'drive' && seeds.find(s => s.type === 'seeders' && s.key === key))
 
-    await drive.ready()
-    tracking.drives.push(info)
+    await tracker.add(key, { type, seeders })
   }
 
-  async function downloadBee (core, announce, { track = true } = {}) {
-    core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
+  const intervalId = setInterval(ui, argv.i || 5000)
+  goodbye(() => clearInterval(intervalId)) // Explicit cleanup
+  ui()
 
-    const bee = new Hyperbee(core)
-
-    if (track) {
-      const info = { bee, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
-      core.on('download', onspeed.bind(null, 'download', info))
-      core.on('upload', onspeed.bind(null, 'upload', info))
-
-      await bee.ready()
-      tracking.bees.push(info)
-    }
-
-    downloadCore(core, announce, { track: false })
+  const lists = tracker.filter(r => r.type === 'list')
+  if (lists[0] && !dryRun) {
+    const list = lists[0].instance
+    const debounced = debounceify(update.bind(null, tracker, list))
+    list.core.on('append', debounced)
+    goodbye(() => list.core.off('append', debounced))
+    await debounced()
   }
-
-  async function downloadCore (core, announce, { track = true } = {}) {
-    core = typeof core === 'string' ? store.get(HypercoreId.decode(core)) : core
-
-    await core.ready()
-
-    if (track) {
-      const info = { core, blocks: { download: speedometer(), upload: speedometer() }, network: { download: speedometer(), upload: speedometer() } }
-      core.on('download', onspeed.bind(null, 'download', info))
-      core.on('upload', onspeed.bind(null, 'upload', info))
-      tracking.cores.push(info)
-    }
-
-    if (announce !== false) swarm.join(core.discoveryKey, { client: true, server: !argv.backup })
-    core.download()
-  }
-
-  goodbye(() => swarm.destroy())
-
-  function onsocket (socket) {
-    socket.on('error', noop)
-    store.replicate(socket)
-  }
-
-  tracking.intervalId = setInterval(update, argv.i || 5000)
-  update()
 }
 
-function update () {
-  const { swarm, seeders, cores, bees, drives } = tracking
+async function load () {
+  const seeds = []
+  const addSeed = (key, type) => seeds.push({ key: HypercoreId.normalize(key), type })
+
+  if (argv.file) {
+    console.log('Loading seeds from file\n')
+
+    const file = await fs.promises.readFile(argv.file)
+    const group = configs.parse(file, { split: ' ', length: 2 })
+    for (const [type, key] of group) {
+      if (type === 'list') throw new Error('List type is not supported in file')
+      addSeed(key, type)
+    }
+
+    return seeds
+  }
+
+  if (argv.list) {
+    console.log('Loading seeds from list\n')
+
+    const group = [].concat(argv.list || [])
+    if (group.length > 1) throw new Error('Max lists limit is one')
+    for (const key of group) addSeed(key, 'list')
+
+    return seeds
+  }
+
+  console.log('Loading seeds from args\n')
+
+  for (const type of ['core', 'bee', 'drive', 'seeders']) {
+    const group = [].concat(argv[type] || [])
+    for (const key of group) addSeed(key, type)
+  }
+
+  return seeds
+}
+
+async function update (tracker, list) {
+  const snap = list.snapshot()
+
+  try {
+    for (const info of tracker.values()) {
+      if (info.external) continue // List does not control resources from argv or file, including itself
+
+      if (await snap.get(info.key) === null) {
+        await tracker.remove(info.key)
+      }
+    }
+
+    for await (const e of snap.createReadStream()) {
+      if (e.value.type === 'list') continue // List of lists is not supported
+
+      await tracker.put(e.key, { ...e.value, external: false })
+    }
+  } finally {
+    await snap.close()
+  }
+}
+
+function ui () {
   const { dht } = swarm
 
   let output = ''
@@ -179,13 +156,27 @@ function update () {
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
   print()
 
+  const cores = tracker.filter(r => r.type === 'core')
+  const bees = tracker.filter(r => r.type === 'bee')
+  const drives = tracker.filter(r => r.type === 'drive')
+  const seeders = drives.filter(r => !!r.seeders)
+  const lists = tracker.filter(r => r.type === 'list')
+
+  if (lists.length) {
+    print('Lists')
+    for (const { instance: bee, blocks, network } of lists) {
+      // TODO: disable byte size?
+      output += formatResource(bee.core, null, { blocks, network })
+    }
+    print()
+  }
+
   if (seeders.length) {
     print('Seeders')
-    for (const sw of seeders) {
+    for (const { seeders: sw } of seeders) {
       const seedId = HypercoreId.encode(sw.seedKeyPair.publicKey)
-      const notif = tracking.notifs[seedId]
 
-      if (!notif) {
+      if (!sw.seeder) {
         print('-', crayon.green(seedId), crayon.gray('~'))
         continue
       }
@@ -193,9 +184,9 @@ function update () {
       print(
         '-',
         crayon.green(seedId),
-        crayon.yellow(notif.seeds.length) + ' seeds,',
-        crayon.yellow(notif.core.length) + ' length,',
-        crayon.yellow(notif.core.fork) + ' fork'
+        crayon.yellow(sw.seeds.length) + ' seeds,',
+        crayon.yellow(sw.core.length) + ' length,',
+        crayon.yellow(sw.core.fork) + ' fork'
       )
     }
     print()
@@ -203,74 +194,62 @@ function update () {
 
   if (cores.length) {
     print('Cores')
-    for (const { core, blocks, network } of cores) {
-      print(
-        '-',
-        crayon.green(core.id),
-        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-        crayon.yellow(byteSize(core.byteLength) + ','),
-        crayon.yellow(core.peers.length) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
-        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
-      )
+    for (const { instance: core, blocks, network } of cores) {
+      output += formatResource(core, null, { blocks, network })
     }
     print()
   }
 
   if (bees.length) {
     print('Bees')
-    for (const { bee, blocks, network } of bees) {
-      const { core } = bee
-
-      print(
-        '-',
-        crayon.green(core.id),
-        crayon.yellow(core.contiguousLength + '/' + core.length) + ' blks,',
-        crayon.yellow(byteSize(core.byteLength) + ','),
-        crayon.yellow(core.peers.length) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
-        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
-      )
+    for (const { instance: bee, blocks, network } of bees) {
+      output += formatResource(bee.core, null, { blocks, network })
     }
     print()
   }
 
   if (drives.length) {
     print('Drives')
-    for (const { drive, blocks, network } of drives) {
-      const id = HypercoreId.encode(drive.key)
-      const filesProgress = drive.core.contiguousLength + '/' + drive.core.length
-      const blobsProgress = (drive.blobs?.core.contiguousLength || 0) + '/' + (drive.blobs?.core.length || 0)
-      const blobsBytes = drive.blobs?.core.byteLength || 0
-      print(
-        '-',
-        crayon.green(id),
-        crayon.yellow(filesProgress) + ' + ' + crayon.yellow(blobsProgress) + ' blks,',
-        crayon.yellow(byteSize(blobsBytes) + ','),
-        crayon.yellow(drive.core.peers.length) + ' + ' + crayon.yellow(drive.blobs?.core.peers.length || 0) + ' peers,',
-        crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.upload())) + ' blks/s',
-        crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.download())),
-        crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.upload()))
-      )
+    for (const { instance: drive, blocks, network } of drives) {
+      output += formatResource(drive.core, drive.blobs, { blocks, network, isDrive: true })
     }
     print()
   }
 
-  if (output === tracking.output) return
-  tracking.output = output
+  if (output === stdout) return
+  stdout = output
 
   console.clear()
   process.stdout.write(output)
 }
 
-function onspeed (eventName, info, index, byteLength, from) {
-  info.blocks[eventName](1)
-  info.network[eventName](byteLength)
+function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {
+  const progress = [crayon.yellow(core.contiguousLength + '/' + core.length)]
+  if (isDrive) progress.push(crayon.yellow((blobs?.core.contiguousLength || 0) + '/' + (blobs?.core.length || 0)))
+
+  const byteLength = [crayon.yellow(byteSize(core.byteLength))]
+  if (isDrive) byteLength.push(crayon.yellow(byteSize(blobs?.core.byteLength || 0)))
+
+  const peers = [crayon.yellow(core.peers.length)]
+  if (isDrive) peers.push(crayon.yellow(blobs?.core.peers.length || 0))
+
+  return format(
+    '-',
+    crayon.green(core.id),
+    progress.join(' + ') + ' blks,',
+    byteLength.join(' + ') + ',',
+    peers.join(' + ') + ' peers,',
+    crayon.green('↓') + ' ' + crayon.yellow(Math.ceil(blocks.down())),
+    crayon.cyan('↑') + ' ' + crayon.yellow(Math.ceil(blocks.up())) + ' blks/s',
+    crayon.green('↓') + ' ' + crayon.yellow(byteSize(network.down())),
+    crayon.cyan('↑') + ' ' + crayon.yellow(byteSize(network.up()))
+  )
 }
 
-function noop () {}
+function format (...args) {
+  return args.join(' ') + '\n'
+}
+
+function onsocket (socket) {
+  store.replicate(socket)
+}
