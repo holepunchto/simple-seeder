@@ -5,12 +5,11 @@ const Hyperswarm = require('hyperswarm')
 const HypercoreId = require('hypercore-id-encoding')
 const minimist = require('minimist')
 const goodbye = require('graceful-goodbye')
-const fs = require('fs')
-const configs = require('tiny-configs')
 const crayon = require('tiny-crayon')
 const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
 const debounceify = require('debounceify')
+const load = require('./lib/load.js')
 const SimpleSeeder = require('./lib/simple-seeder.js')
 
 const argv = minimist(process.argv.slice(2), {
@@ -53,7 +52,7 @@ async function main () {
     return
   }
 
-  const seeds = await load()
+  const seeds = await load(argv)
 
   tracker = new SimpleSeeder(store, swarm, { backup: argv.backup })
   goodbye(() => tracker.destroy())
@@ -78,41 +77,6 @@ async function main () {
     goodbye(() => list.core.off('append', debounced))
     await debounced()
   }
-}
-
-async function load () {
-  const seeds = []
-  const addSeed = (key, type) => seeds.push({ key: HypercoreId.normalize(key), type })
-
-  if (argv.file) {
-    console.log('Loading seeds from file\n')
-
-    const file = await fs.promises.readFile(argv.file)
-    const group = configs.parse(file, { split: ' ', length: 2 })
-    for (const [type, key] of group) {
-      if (type === 'list') throw new Error('List type is not supported in file')
-      addSeed(key, type)
-    }
-
-    return seeds
-  }
-
-  if (argv._[0]) {
-    console.log('Loading seeds from list\n')
-
-    addSeed(argv._[0], 'list')
-
-    return seeds
-  }
-
-  console.log('Loading seeds from args\n')
-
-  for (const type of ['core', 'bee', 'drive', 'seeders']) {
-    const group = [].concat(argv[type] || [])
-    for (const key of group) addSeed(key, type)
-  }
-
-  return seeds
 }
 
 function ui () {
