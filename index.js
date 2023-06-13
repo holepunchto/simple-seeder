@@ -64,8 +64,7 @@ async function main () {
     await tracker.add(key, { type, seeders })
   }
 
-  const intervalId = setInterval(ui, argv.i || 5000)
-  goodbye(() => clearInterval(intervalId)) // Explicit cleanup
+  setInterval(ui, argv.i || 5000)
   ui()
 
   const lists = tracker.filter(r => r.type === 'list')
@@ -74,7 +73,6 @@ async function main () {
     const bound = tracker.update.bind(tracker, list)
     const debounced = debounceify(bound)
     list.core.on('append', debounced)
-    goodbye(() => list.core.off('append', debounced))
     await debounced()
   }
 }
