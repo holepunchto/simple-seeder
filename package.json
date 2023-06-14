@@ -5,6 +5,7 @@
   "main": "index.js",
   "files": [
     "index.js",
+    "menu.js",
     "lib/**.js"
   ],
   "bin": {
