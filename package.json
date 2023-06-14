@@ -11,7 +11,7 @@
     "simple-seeder": "./index.js"
   },
   "scripts": {
-    "test": "standard"
+    "test": "standard && brittle test/*.js"
   },
   "repository": {
     "type": "git",
@@ -25,7 +25,7 @@
   "homepage": "https://github.com/holepunchto/simple-seeder",
   "dependencies": {
     "@hyperswarm/seeders": "^1.1.2",
-    "corestore": "^6.7.0",
+    "corestore": "^6.8.3",
     "debounceify": "^1.0.0",
     "graceful-goodbye": "^1.0.0",
     "hyperbee": "^2.12.0",
@@ -42,6 +42,9 @@
     "tiny-menu": "^1.1.0"
   },
   "devDependencies": {
+    "b4a": "^1.6.4",
+    "brittle": "^3.3.2",
+    "random-access-memory": "^6.2.0",
     "standard": "^17.0.0"
   }
 }
