@@ -9,6 +9,30 @@ const createTestnet = require('hyperdht/testnet')
 const b4a = require('b4a')
 
 test('basic', async function (t) {
+  t.plan(6)
+
+  const { testnet, seeds } = await createResources(t)
+
+  const store = new Corestore(RAM)
+
+  const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
+  swarm.on('connection', (socket) => store.replicate(socket))
+  t.teardown(() => swarm.destroy())
+
+  const ss = new SimpleSeeder(store, swarm)
+  t.teardown(() => ss.destroy())
+
+  for (const seed of seeds) {
+    const info = await ss.add(seed.key, seed.value)
+    t.is(info.seeders, null)
+  }
+
+  t.alike(await ss.get(seeds.core.key).instance.get(0), b4a.from('ab'))
+  t.alike(await ss.get(seeds.bee.key).instance.get('/a'), { seq: 1, key: b4a.from('/a'), value: b4a.from('ab') })
+  t.alike(await ss.get(seeds.drive.key).instance.get('/a.txt'), b4a.from('ab'))
+})
+
+test('seeders option', async function (t) {
   t.plan(3)
 
   const { testnet, seeds } = await createResources(t)
@@ -23,12 +47,9 @@ test('basic', async function (t) {
   t.teardown(() => ss.destroy())
 
   for (const seed of seeds) {
-    await ss.add(seed.key, seed.value)
+    const info = await ss.add(seed.key, { ...seed.value, seeders: true })
+    t.ok(info.seeders)
   }
-
-  t.alike(await ss.get(seeds.core.key).instance.get(0), b4a.from('ab'))
-  t.alike(await ss.get(seeds.bee.key).instance.get('/a'), { seq: 1, key: b4a.from('/a'), value: b4a.from('ab') })
-  t.alike(await ss.get(seeds.drive.key).instance.get('/a.txt'), b4a.from('ab'))
 })
 
 test('closing a drive should not close the store in use', async function (t) {

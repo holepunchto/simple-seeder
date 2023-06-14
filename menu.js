@@ -87,17 +87,13 @@ module.exports = async function (key, { store, swarm }) {
           return menu.show()
         }
 
-        let seeders = false
-
-        if (type === 'drive') {
-          const addSeeders = await this.ask('Enable swarm seeders? [Y/n] ')
-          if (addSeeders === null) {
-            console.log()
-            return menu.show()
-          }
-
-          seeders = addSeeders.toLowerCase() === 'y'
+        const addSeeders = await this.ask('Enable swarm seeders? [Y/n] ')
+        if (addSeeders === null) {
+          console.log()
+          return menu.show()
         }
+
+        const seeders = addSeeders.toLowerCase() === 'y'
 
         await bee.put(id, { type, description, seeders })
 
