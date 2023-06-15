@@ -24,7 +24,7 @@ You use those args:
 simple-seeder -c <key> -c <another-key>
 ```
 
-The `seeders` option is only for drives, and must use the same drive key to enable it.
+The `seeders` is an option, and must use the same key as the resource to enable it.
 
 #### File
 A file containing the seeds list:
