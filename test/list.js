@@ -6,11 +6,12 @@ const List = require('../lib/list.js')
 const K = 'fbh6h7j9xgpsqeyke9rtzbcyowwobxfozhr3ukz9x64kf9zok41o'
 
 test('basic', async function (t) {
-  t.plan(5)
+  t.plan(6)
 
   const list = new List(new Hypercore(RAM))
   await list.ready()
 
+  t.ok(list.core)
   t.ok(list.bee)
 
   await list.put(K, { type: 'core' })
