@@ -72,7 +72,7 @@ async function main () {
     const list = lists[0].instance
     const bound = tracker.update.bind(tracker, list)
     const debounced = debounceify(bound)
-    list.bee.core.on('append', debounced)
+    list.core.on('append', debounced)
     await debounced()
   }
 }
