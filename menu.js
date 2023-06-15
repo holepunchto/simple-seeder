@@ -8,8 +8,8 @@ const types = ['core', 'bee', 'drive']
 module.exports = async function (key, { store, swarm }) {
   const core = store.get(typeof key === 'string' ? { key: Id.decode(key) } : { name: 'list' })
   const list = new List(core)
-  await list.ready()
 
+  await core.ready()
   const done = core.findingPeers()
   swarm.join(core.discoveryKey)
   swarm.flush().then(done, done)
@@ -178,7 +178,7 @@ module.exports = async function (key, { store, swarm }) {
 
         const seeders = addSeeders.toLowerCase() === 'y'
 
-        await list.update(entry, { description, seeders })
+        await list.edit(entry, { description, seeders })
 
         console.log(crayon.green('Item updated'))
         console.log()

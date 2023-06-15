@@ -1,29 +1,28 @@
 const test = require('brittle')
 const RAM = require('random-access-memory')
 const Hypercore = require('hypercore')
-const List = require('../lib/list.js')
+const SeedBee = require('../lib/list.js')
 
 const K = 'fbh6h7j9xgpsqeyke9rtzbcyowwobxfozhr3ukz9x64kf9zok41o'
 
 test('basic', async function (t) {
   t.plan(6)
 
-  const list = new List(new Hypercore(RAM))
-  await list.ready()
+  const seed = new SeedBee(new Hypercore(RAM))
 
-  t.ok(list.core)
-  t.ok(list.bee)
+  t.ok(seed.core)
+  t.ok(seed.bee)
 
-  await list.put(K, { type: 'core' })
+  await seed.put(K, { type: 'core' })
 
-  t.alike(await list.get(K), {
+  t.alike(await seed.get(K), {
     type: 'core',
     description: '',
     seeders: false
   })
 
   let entry = null
-  for await (const e of list.entries()) { // eslint-disable-line no-unreachable-loop
+  for await (const e of seed.entries()) { // eslint-disable-line no-unreachable-loop
     entry = e
     break
   }
@@ -38,47 +37,47 @@ test('basic', async function (t) {
     }
   })
 
-  await list.update(entry, { description: 'Some text' })
+  await seed.edit(entry, { description: 'Some text' })
 
-  t.alike(await list.get(K), {
+  t.alike(await seed.get(K), {
     type: 'core',
     description: 'Some text',
     seeders: false
   })
 
-  await list.del(K)
+  await seed.del(K)
 
-  t.is(await list.get(K), null)
+  t.is(await seed.get(K), null)
 
-  await list.close()
+  await seed.close()
 })
 
 test('try to repeat the same entry', async function (t) {
   t.plan(5)
 
-  const list = new List(new Hypercore(RAM))
-  t.is(list.bee.version, 1)
+  const seed = new SeedBee(new Hypercore(RAM))
+  t.is(seed.bee.version, 1)
 
-  await list.put(K, { type: 'core' })
-  t.is(list.bee.version, 2)
+  await seed.put(K, { type: 'core' })
+  t.is(seed.bee.version, 2)
 
-  await list.put(K, { type: 'core' })
-  t.is(list.bee.version, 2)
+  await seed.put(K, { type: 'core' })
+  t.is(seed.bee.version, 2)
 
-  await list.put(K, { type: 'core', description: 'Updated' })
-  t.is(list.bee.version, 3)
+  await seed.put(K, { type: 'core', description: 'Updated' })
+  t.is(seed.bee.version, 3)
 
-  await list.put(K, { type: 'core', description: 'Updated' })
-  t.is(list.bee.version, 3)
+  await seed.put(K, { type: 'core', description: 'Updated' })
+  t.is(seed.bee.version, 3)
 })
 
 test('invalid key', async function (t) {
   t.plan(1)
 
-  const list = new List(new Hypercore(RAM))
+  const seed = new SeedBee(new Hypercore(RAM))
 
   try {
-    await list.put('random-invalid-key')
+    await seed.put('random-invalid-key')
   } catch (err) {
     t.is(err.message, 'Invalid Hypercore key')
   }
@@ -87,16 +86,16 @@ test('invalid key', async function (t) {
 test('empty or invalid type', async function (t) {
   t.plan(2)
 
-  const list = new List(new Hypercore(RAM))
+  const seed = new SeedBee(new Hypercore(RAM))
 
   try {
-    await list.put(K)
+    await seed.put(K)
   } catch (err) {
     t.ok(err.message.startsWith('Invalid type'))
   }
 
   try {
-    await list.put(K, { type: 'seeders' })
+    await seed.put(K, { type: 'seeders' })
   } catch (err) {
     t.ok(err.message.startsWith('Invalid type'))
   }
@@ -105,10 +104,10 @@ test('empty or invalid type', async function (t) {
 test('invalid encoding values', async function (t) {
   t.plan(1)
 
-  const list = new List(new Hypercore(RAM))
+  const seed = new SeedBee(new Hypercore(RAM))
 
   try {
-    await list.put(K, { type: 'core', description: 123 })
+    await seed.put(K, { type: 'core', description: 123 })
   } catch (err) {
     t.is(err.code, 'ERR_INVALID_ARG_TYPE') // CompactEncoding error
   }
