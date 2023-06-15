@@ -38,6 +38,7 @@
     "minimist": "^1.2.6",
     "mutexify": "^1.4.0",
     "ready-resource": "^1.0.0",
+    "seedbee": "^1.0.0",
     "speedometer": "^1.1.0",
     "tiny-byte-size": "^1.1.0",
     "tiny-configs": "^1.1.0",

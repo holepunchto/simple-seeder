@@ -1,7 +1,7 @@
 const Id = require('hypercore-id-encoding')
 const crayon = require('tiny-crayon')
 const Menu = require('tiny-menu')
-const SeedBee = require('./lib/list.js')
+const SeedBee = require('seedbee')
 
 const types = ['core', 'bee', 'drive']
 
@@ -121,7 +121,7 @@ module.exports = async function (key, { store, swarm }) {
       for (const type of types) {
         for await (const entry of list.entries({ type })) {
           count++
-          const text = crayon.yellow(count + '.') + ' ' + crayon.magenta(entry.value.type.toUpperCase()) + ' ' + crayon.green(entry.key) + ' ' + crayon.gray(entry.value.description)
+          const text = crayon.yellow(count + '.') + ' ' + crayon.magenta(entry.value.type.toUpperCase()) + ' ' + crayon.green(Id.encode(entry.key)) + ' ' + crayon.gray(entry.value.description)
           const value = { entry }
 
           this.add(count, text, { value, custom: true, disabled: pagination.$action === 1 })
