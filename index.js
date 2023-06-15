@@ -157,7 +157,7 @@ function ui () {
   if (output === stdout) return
   stdout = output
 
-  console.clear()
+  // console.clear()
   process.stdout.write(output)
 }
 

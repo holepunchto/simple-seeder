@@ -1,13 +1,13 @@
 const Id = require('hypercore-id-encoding')
 const crayon = require('tiny-crayon')
 const Menu = require('tiny-menu')
-const List = require('./lib/list.js')
+const SeedBee = require('./lib/list.js')
 
 const types = ['core', 'bee', 'drive']
 
 module.exports = async function (key, { store, swarm }) {
   const core = store.get(typeof key === 'string' ? { key: Id.decode(key) } : { name: 'list' })
-  const list = new List(core)
+  const list = new SeedBee(core)
 
   await core.ready()
   const done = core.findingPeers()
