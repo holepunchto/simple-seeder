@@ -54,7 +54,7 @@ async function main () {
 
   const seeds = await load(argv)
 
-  tracker = new SimpleSeeder(store, swarm, { backup: argv.backup })
+  tracker = new SimpleSeeder(store, swarm, { backup: argv.backup, onupdate: ui })
   goodbye(() => tracker.destroy())
 
   for (const { key, type } of seeds) {
