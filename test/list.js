@@ -52,6 +52,25 @@ test('basic', async function (t) {
   await list.close()
 })
 
+test('try to repeat the same entry', async function (t) {
+  t.plan(5)
+
+  const list = new List(new Hypercore(RAM))
+  t.is(list.bee.version, 1)
+
+  await list.put(K, { type: 'core' })
+  t.is(list.bee.version, 2)
+
+  await list.put(K, { type: 'core' })
+  t.is(list.bee.version, 2)
+
+  await list.put(K, { type: 'core', description: 'Updated' })
+  t.is(list.bee.version, 3)
+
+  await list.put(K, { type: 'core', description: 'Updated' })
+  t.is(list.bee.version, 3)
+})
+
 test('invalid key', async function (t) {
   t.plan(1)
 
