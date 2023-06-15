@@ -23,7 +23,9 @@ const argv = minimist(process.argv.slice(2), {
 
 const secretKey = argv['secret-key']
 const store = new Corestore(argv.storage || './corestore')
+
 const dryRun = argv['dry-run']
+const quiet = argv.quiet
 
 let swarm = null
 let tracker = null
@@ -78,10 +80,22 @@ async function main () {
 }
 
 function ui () {
-  const { dht } = swarm
-
   let output = ''
   const print = (...args) => { output += args.join(' ') + '\n' }
+  const flush = () => {
+    if (output === stdout) return
+    stdout = output
+    if (!quiet) console.clear()
+    process.stdout.write(output)
+  }
+
+  if (quiet) {
+    print('Swarm connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
+    flush()
+    return
+  }
+
+  const { dht } = swarm
 
   print('Node')
   print('- Address:', dht.bootstrapped ? crayon.yellow(dht.host + ':' + dht.port) : crayon.gray('~'))
@@ -154,11 +168,7 @@ function ui () {
     print()
   }
 
-  if (output === stdout) return
-  stdout = output
-
-  console.clear()
-  process.stdout.write(output)
+  flush()
 }
 
 function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {
