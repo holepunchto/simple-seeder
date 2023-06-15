@@ -1,36 +1,28 @@
-const Hyperbee = require('hyperbee')
-const HypercoreId = require('hypercore-id-encoding')
+const Id = require('hypercore-id-encoding')
 const crayon = require('tiny-crayon')
 const Menu = require('tiny-menu')
+const List = require('./lib/list.js')
 
 const types = ['core', 'bee', 'drive']
 
 module.exports = async function (key, { store, swarm }) {
-  const storeOptions = {}
+  const core = store.get(typeof key === 'string' ? { key: Id.decode(key) } : { name: 'list' })
+  const list = new List(core)
+  await list.ready()
 
-  if (typeof key === 'string') {
-    storeOptions.key = HypercoreId.decode(key)
-  } else {
-    storeOptions.name = 'list'
-  }
-
-  const core = store.get(storeOptions)
-  const bee = new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json' })
-  await bee.ready()
-
-  const done = bee.core.findingPeers()
-  swarm.join(bee.core.discoveryKey)
+  const done = core.findingPeers()
+  swarm.join(core.discoveryKey)
   swarm.flush().then(done, done)
 
   const menu = new Menu({
     clear: false,
     render (page) {
-      this.create(crayon.bgGray('Menu') + ' (list key): ' + crayon.green(HypercoreId.encode(core.key)))
+      this.create(crayon.bgGray('Menu') + ' (list key): ' + crayon.green(Id.encode(core.key)))
 
       this.add(1, 'Listing')
-      this.add(2, 'Add', { disabled: !bee.core.writable })
-      this.add(3, 'Delete', { disabled: !bee.core.writable })
-      this.add(4, 'Edit\n', { disabled: !bee.core.writable })
+      this.add(2, 'Add', { disabled: !core.writable })
+      this.add(3, 'Delete', { disabled: !core.writable })
+      this.add(4, 'Edit\n', { disabled: !core.writable })
 
       this.add(9, 'Generate new list\n')
 
@@ -41,8 +33,8 @@ module.exports = async function (key, { store, swarm }) {
 
       if (item === 1 || item === 3 || item === 4) {
         // TODO: add some kind of "userData" to menu to avoid this. Maybe it can be passed down like show({ userData })
-        list.$action = item
-        return list.show()
+        pagination.$action = item
+        return pagination.show()
       }
 
       if (item === 2) {
@@ -69,14 +61,14 @@ module.exports = async function (key, { store, swarm }) {
 
         let id = null
         try {
-          id = HypercoreId.encode(HypercoreId.decode(key))
+          id = Id.normalize(key)
         } catch {
           console.log(crayon.red('Invalid key format: ' + key))
           return
         }
 
-        const current = await bee.get(id, { wait: false })
-        if (current && current.value.type === type) {
+        const current = await list.get(id)
+        if (current && current.type === type) {
           console.log(crayon.red('Key already exists'))
           return
         }
@@ -95,7 +87,7 @@ module.exports = async function (key, { store, swarm }) {
 
         const seeders = addSeeders.toLowerCase() === 'y'
 
-        await bee.put(id, { type, description, seeders })
+        await list.put(id, { type, description, seeders })
 
         console.log(crayon.green('Item added'))
         console.log()
@@ -106,6 +98,7 @@ module.exports = async function (key, { store, swarm }) {
       if (item === 9) {
         const core = store.get({ name: Math.random().toString() })
         await core.ready()
+        await core.close()
 
         console.log(crayon.bgGray('New list'))
         console.log()
@@ -116,24 +109,22 @@ module.exports = async function (key, { store, swarm }) {
     }
   })
 
-  const list = new Menu({
+  const pagination = new Menu({
     clear: false,
     async render (page) {
-      if (list.$action === 1) this.create(crayon.bgGray('Items'))
-      else if (list.$action === 3) this.create(crayon.bgGray('Delete item'))
-      else if (list.$action === 4) this.create(crayon.bgGray('Edit item'))
+      if (pagination.$action === 1) this.create(crayon.bgGray('Items'))
+      else if (pagination.$action === 3) this.create(crayon.bgGray('Delete item'))
+      else if (pagination.$action === 4) this.create(crayon.bgGray('Edit item'))
 
       let count = 0
 
       for (const type of types) {
-        for await (const entry of bee.createReadStream()) {
-          if (type !== entry.value.type) continue
-
+        for await (const entry of list.entries({ type })) {
           count++
           const text = crayon.yellow(count + '.') + ' ' + crayon.magenta(entry.value.type.toUpperCase()) + ' ' + crayon.green(entry.key) + ' ' + crayon.gray(entry.value.description)
           const value = { entry }
 
-          this.add(count, text, { value, custom: true, disabled: list.$action === 1 })
+          this.add(count, text, { value, custom: true, disabled: pagination.$action === 1 })
         }
       }
 
@@ -146,32 +137,32 @@ module.exports = async function (key, { store, swarm }) {
     },
     async ask (count) {
       // If no items or just List items then default ask behaviour
-      if (count === 0 || list.$action === 1) return this.ask()
+      if (count === 0 || pagination.$action === 1) return this.ask()
       // Otherwise ask which item to Delete or Edit
       return this.ask('Item: ' + crayon.gray('[number]') + ' ')
     },
     async handler (item, value, page) {
       if (item === 0 || item === null) {
-        if (list.$action !== 1) console.log()
+        if (pagination.$action !== 1) console.log()
         return menu.show()
       }
 
-      if (list.$action === 1) return list.show()
+      if (pagination.$action === 1) return pagination.show()
 
       // Delete
-      if (list.$action === 3) {
+      if (pagination.$action === 3) {
         const { entry } = value
 
-        await bee.del(entry.key)
+        await list.del(entry.key)
 
         console.log(crayon.red('Item removed'))
         console.log()
 
-        return list.show()
+        return pagination.show()
       }
 
       // Edit
-      if (list.$action === 4) {
+      if (pagination.$action === 4) {
         const { entry } = value
 
         // TODO: maybe ask which property to edit?
@@ -187,12 +178,12 @@ module.exports = async function (key, { store, swarm }) {
 
         const seeders = addSeeders.toLowerCase() === 'y'
 
-        await bee.put(entry.key, { ...entry.value, description, seeders })
+        await list.update(entry, { description, seeders })
 
         console.log(crayon.green('Item updated'))
         console.log()
 
-        return list.show()
+        return pagination.show()
       }
     }
   })
