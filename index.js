@@ -41,6 +41,8 @@ start().catch(err => {
   process.exit(1)
 })
 
+let cs = 0
+
 async function start () {
   const secretKey = argv['secret-key']
   const store = new Corestore(argv.storage || './corestore')
@@ -88,6 +90,12 @@ async function start () {
 
     sw.join()
     sw.on('connection', onsocket)
+    sw.on('connection', function (conn) {
+      cs++
+      conn.on('close', () => {
+        cs--
+      })
+    })
     sw.on('update', function (record) {
       tracking.notifs[id] = record
     })
@@ -177,6 +185,19 @@ function update () {
   print('Swarm')
   print('- Public key:', crayon.green(HypercoreId.encode(swarm.keyPair.publicKey)))
   print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
+  print('- Raw set:', swarm.dht._rawStreams._streams.size)
+  print('- DHT.socketPool:', swarm.dht._socketPool._sockets.size)
+
+  let streams = 0
+  for (const sock of swarm.dht._socketPool._sockets.keys()) {
+    streams += sock.streams.size
+  }
+
+  print('- UDX.streams:', streams)
+  if (swarm.dht.io.serverSocket) print('- UDX.serverSocket.streams', swarm.dht.io.serverSocket.streams.size)
+  if (swarm.dht.io.clientSocket) print('- UDX.clientSocket.streams', swarm.dht.io.clientSocket.streams.size)
+
+  print('- Seeders set', cs)
   print()
 
   if (seeders.length) {
