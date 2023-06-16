@@ -89,13 +89,21 @@ function ui () {
     process.stdout.write(output)
   }
 
+  const { dht } = swarm
+  const cores = tracker.filter(r => r.type === 'core')
+  const bees = tracker.filter(r => r.type === 'bee')
+  const drives = tracker.filter(r => r.type === 'drive')
+  const seeders = tracker.filter(r => !!r.seeders)
+  const lists = tracker.filter(r => r.type === 'list')
+
+  const totalConnections = swarm.connections.size + seeders.reduce((acc, r) => acc + r.seeders.connections.length, 0)
+  const totalConnecting = swarm.connecting + seeders.reduce((acc, r) => acc + r.seeders.clientConnecting, 0)
+
   if (quiet) {
-    print('Swarm connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
+    print('Swarm connections:', crayon.yellow(totalConnections), totalConnecting ? ('(connecting ' + crayon.yellow(totalConnecting) + ')') : '')
     flush()
     return
   }
-
-  const { dht } = swarm
 
   print('Node')
   print('- Address:', dht.bootstrapped ? crayon.yellow(dht.host + ':' + dht.port) : crayon.gray('~'))
@@ -105,14 +113,8 @@ function ui () {
 
   print('Swarm')
   print('- Public key:', crayon.green(HypercoreId.encode(swarm.keyPair.publicKey)))
-  print('- Connections:', crayon.yellow(swarm.connections.size), swarm.connecting ? ('(connecting ' + crayon.yellow(swarm.connecting) + ')') : '')
+  print('- Connections:', crayon.yellow(totalConnections), totalConnecting ? ('(connecting ' + crayon.yellow(totalConnecting) + ')') : '')
   print()
-
-  const cores = tracker.filter(r => r.type === 'core')
-  const bees = tracker.filter(r => r.type === 'bee')
-  const drives = tracker.filter(r => r.type === 'drive')
-  const seeders = drives.filter(r => !!r.seeders)
-  const lists = tracker.filter(r => r.type === 'list')
 
   if (lists.length) {
     print('Lists')
