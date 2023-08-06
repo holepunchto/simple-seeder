@@ -124,7 +124,7 @@ module.exports = async function (key, { store, swarm }) {
           const text = crayon.yellow(count + '.') + ' ' + crayon.magenta(entry.value.type.toUpperCase()) + ' ' + crayon.green(Id.encode(entry.key)) + ' ' + crayon.gray(entry.value.description)
           const value = { entry }
 
-          this.add(count, text, { value, custom: true, disabled: pagination.$action === 1 })
+          this.add(-1, text, { value, custom: true, disabled: pagination.$action === 1 })
         }
       }
 
