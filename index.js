@@ -9,7 +9,6 @@ const crayon = require('tiny-crayon')
 const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
 const debounceify = require('debounceify')
-const SeedBee = require('seedbee')
 const load = require('./lib/load.js')
 const SimpleSeeder = require('./lib/simple-seeder.js')
 
@@ -77,13 +76,6 @@ async function main () {
     const debounced = debounceify(bound)
     list.core.on('append', debounced)
     await debounced()
-
-    const allowedPeers = await list.getProperty(SeedBee.ALLOWED_PEERS_METADATA_KEY)
-    swarm.firewall = (remotePublicKey) => {
-      if (allowedPeers === '*' || allowedPeers === null) return false
-      if (allowedPeers.split(',').find(e => e === remotePublicKey)) return false
-      return true
-    }
   }
 }
 

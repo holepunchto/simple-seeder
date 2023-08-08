@@ -7,6 +7,7 @@ const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
 const createTestnet = require('hyperdht/testnet')
 const b4a = require('b4a')
+const SeedBee = require('seedbee')
 
 test('basic', async function (t) {
   t.plan(6)
@@ -68,6 +69,70 @@ test('closing a drive should not close the store in use', async function (t) {
   await ss.remove(seeds.drive.key)
 
   await ss.add(seeds.core.key, seeds.core.value)
+})
+
+test('rejected peer by firewall', async function (t) {
+  t.plan(1)
+
+  const { testnet } = await createResources(t)
+
+  const store = new Corestore(RAM)
+
+  const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
+
+  const ss = new SimpleSeeder(store, swarm)
+  t.teardown(() => ss.destroy())
+
+  const core = store.get({ name: 'seedbee-firewall-test' })
+  const seedBee = new SeedBee(core)
+  await seedBee.ready()
+
+  const notAllowed = new Hyperswarm({ bootstrap: testnet.bootstrap })
+  const allowedPeersKey = 'simple-seeder/allowed-peers'
+  await seedBee.metadata.put(allowedPeersKey, [Buffer.alloc(32).toString('hex')])
+
+  ss.on('peer-rejected', (remotePublicKey) => {
+    t.is(remotePublicKey.toString('hex'), notAllowed.keyPair.publicKey.toString('hex'))
+    swarm.destroy()
+    notAllowed.destroy()
+  })
+
+  await ss.add(seedBee.core.key, { type: 'list' })
+
+  notAllowed.join(seedBee.core.discoveryKey)
+  await notAllowed.flush()
+})
+
+test('connected peer through firewall', async function (t) {
+  t.plan(1)
+
+  const { testnet } = await createResources(t)
+
+  const store = new Corestore(RAM)
+
+  const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
+
+  const ss = new SimpleSeeder(store, swarm)
+  t.teardown(() => ss.destroy())
+
+  const core = store.get({ name: 'seedbee-firewall-test' })
+  const seedBee = new SeedBee(core)
+  await seedBee.ready()
+
+  const allowed = new Hyperswarm({ bootstrap: testnet.bootstrap })
+  const allowedPeersKey = 'simple-seeder/allowed-peers'
+  await seedBee.metadata.put(allowedPeersKey, [allowed.keyPair.publicKey.toString('hex')])
+
+  ss.on('peer-connected', (remotePublicKey) => {
+    t.is(remotePublicKey.toString('hex'), allowed.keyPair.publicKey.toString('hex'))
+    swarm.destroy()
+    allowed.destroy()
+  })
+
+  await ss.add(seedBee.core.key, { type: 'list' })
+
+  allowed.join(seedBee.core.discoveryKey)
+  await allowed.flush()
 })
 
 // TODO: decouple more and improve teardown
