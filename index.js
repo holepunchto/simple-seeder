@@ -179,16 +179,20 @@ function firewall (remotePublicKey) {
   const [list] = tracker.filter(r => r.type === 'list')
   if (!list) return false
 
-  if (list.instance.allowedPeers.length === 0) {
+  if (list.instance.allowedPeers === null) { // all peers allowed
     return false
+  }
+
+  if (list.instance.allowedPeers.length === 0) { // none allowed
+    return true
   }
 
   const hexKey = b4a.toString(remotePublicKey, 'hex')
-  if (list.instance.allowedPeers.indexOf(hexKey) !== -1) {
+  if (list.instance.allowedPeers.indexOf(hexKey) !== -1) { // check if it is allowed
     return false
+  } else {
+    return true
   }
-
-  return true
 }
 
 function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {
