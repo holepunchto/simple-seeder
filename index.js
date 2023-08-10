@@ -11,6 +11,7 @@ const DHT = require('hyperdht')
 const debounceify = require('debounceify')
 const load = require('./lib/load.js')
 const SimpleSeeder = require('./lib/simple-seeder.js')
+const b4a = require('b4a')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -40,7 +41,8 @@ async function main () {
   swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
     keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
-    dht: new DHT({ port: argv.port })
+    dht: new DHT({ port: argv.port }),
+    firewall
   })
   swarm.on('connection', onsocket)
   swarm.listen()
@@ -171,6 +173,22 @@ function ui () {
   }
 
   flush()
+}
+
+function firewall (remotePublicKey) {
+  const [list] = tracker.filter(r => r.type === 'list')
+  if (!list) return false
+
+  if (list.instance.allowedPeers.length === 0) {
+    return false
+  }
+
+  const hexKey = b4a.toString(remotePublicKey, 'hex')
+  if (list.instance.allowedPeers.indexOf(hexKey) !== -1) {
+    return false
+  }
+
+  return true
 }
 
 function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {
