@@ -73,10 +73,10 @@ async function main () {
 
   const lists = tracker.filter(r => r.type === 'list')
   if (lists[0] && !dryRun) {
-    const list = lists[0].instance
-    const bound = tracker.update.bind(tracker, list)
+    const info = lists[0]
+    const bound = tracker.update.bind(tracker, info, info.instance)
     const debounced = debounceify(bound)
-    list.core.on('append', debounced)
+    info.instance.core.on('append', debounced)
     await debounced()
   }
 }
@@ -179,20 +179,16 @@ function firewall (remotePublicKey) {
   const [list] = tracker.filter(r => r.type === 'list')
   if (!list) return false
 
-  if (list.instance.allowedPeers === null) { // all peers allowed
+  if (list.userData.allowedPeers === null) { // all peers allowed
     return false
   }
 
-  if (list.instance.allowedPeers.length === 0) { // none allowed
+  if (list.userData.allowedPeers.length === 0) { // none allowed
     return true
   }
 
   const hexKey = b4a.toString(remotePublicKey, 'hex')
-  if (list.instance.allowedPeers.indexOf(hexKey) !== -1) { // check if it is allowed
-    return false
-  } else {
-    return true
-  }
+  return list.userData.allowedPeers.indexOf(hexKey) !== -1 // check if it is allowed
 }
 
 function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {
