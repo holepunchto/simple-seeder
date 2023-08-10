@@ -188,7 +188,7 @@ function firewall (remotePublicKey) {
   }
 
   const hexKey = b4a.toString(remotePublicKey, 'hex')
-  return list.userData.allowedPeers.indexOf(hexKey) !== -1 // check if it is allowed
+  return list.userData.allowedPeers.indexOf(hexKey) === -1 // check if it is allowed
 }
 
 function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {
