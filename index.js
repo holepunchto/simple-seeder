@@ -11,6 +11,7 @@ const DHT = require('hyperdht')
 const debounceify = require('debounceify')
 const load = require('./lib/load.js')
 const SimpleSeeder = require('./lib/simple-seeder.js')
+const b4a = require('b4a')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -40,7 +41,8 @@ async function main () {
   swarm = new Hyperswarm({
     seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
     keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
-    dht: new DHT({ port: argv.port })
+    dht: new DHT({ port: argv.port }),
+    firewall
   })
   swarm.on('connection', onsocket)
   swarm.listen()
@@ -71,10 +73,10 @@ async function main () {
 
   const lists = tracker.filter(r => r.type === 'list')
   if (lists[0] && !dryRun) {
-    const list = lists[0].instance
-    const bound = tracker.update.bind(tracker, list)
+    const info = lists[0]
+    const bound = tracker.update.bind(tracker, info, info.instance)
     const debounced = debounceify(bound)
-    list.core.on('append', debounced)
+    info.instance.core.on('append', debounced)
     await debounced()
   }
 }
@@ -171,6 +173,22 @@ function ui () {
   }
 
   flush()
+}
+
+function firewall (remotePublicKey) {
+  const [list] = tracker.filter(r => r.type === 'list')
+  if (!list) return false
+
+  if (list.userData.allowedPeers === null) { // all peers allowed
+    return false
+  }
+
+  if (list.userData.allowedPeers.length === 0) { // none allowed
+    return true
+  }
+
+  const hexKey = b4a.toString(remotePublicKey, 'hex')
+  return list.userData.allowedPeers.indexOf(hexKey) === -1 // check if it is allowed
 }
 
 function formatResource (core, blobs, { blocks, network, isDrive = false } = {}) {

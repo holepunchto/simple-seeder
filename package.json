@@ -26,6 +26,7 @@
   "homepage": "https://github.com/holepunchto/simple-seeder",
   "dependencies": {
     "@hyperswarm/seeders": "^1.1.2",
+    "b4a": "^1.6.4",
     "corestore": "^6.8.3",
     "debounceify": "^1.0.0",
     "graceful-goodbye": "^1.0.0",
@@ -36,7 +37,7 @@
     "hyperswarm": "^4.0.0",
     "minimist": "^1.2.6",
     "mutexify": "^1.4.0",
-    "seedbee": "^1.0.0",
+    "seedbee": "^2.0.0",
     "speedometer": "^1.1.0",
     "tiny-byte-size": "^1.1.0",
     "tiny-configs": "^1.1.0",
@@ -44,7 +45,6 @@
     "tiny-menu": "^1.1.0"
   },
   "devDependencies": {
-    "b4a": "^1.6.4",
     "brittle": "^3.3.2",
     "random-access-memory": "^6.2.0",
     "standard": "^17.0.0"
