@@ -97,6 +97,7 @@ function ui () {
   const drives = tracker.filter(r => r.type === 'drive')
   const seeders = tracker.filter(r => !!r.seeders)
   const lists = tracker.filter(r => r.type === 'list')
+  const allowedPeers = lists[0] ? lists[0].userData.allowedPeers : undefined
 
   const totalConnections = swarm.connections.size + seeders.reduce((acc, r) => acc + r.seeders.connections.length, 0)
   const totalConnecting = swarm.connecting + seeders.reduce((acc, r) => acc + r.seeders.clientConnecting, 0)
@@ -117,6 +118,20 @@ function ui () {
   print('- Public key:', crayon.green(HypercoreId.encode(swarm.keyPair.publicKey)))
   print('- Connections:', crayon.yellow(totalConnections), totalConnecting ? ('(connecting ' + crayon.yellow(totalConnecting) + ')') : '')
   print()
+
+  if (allowedPeers !== undefined) {
+    print('Allowed Peers')
+    if (allowedPeers === null) {
+      print(crayon.green('All peers allowed.'))
+    } else if (allowedPeers.length === 0) {
+      print(crayon.red('All peers denied.'))
+    } else {
+      allowedPeers.forEach(e => {
+        print('- Peer:', crayon.green(e))
+      })
+    }
+    print()
+  }
 
   if (lists.length) {
     print('Lists')
