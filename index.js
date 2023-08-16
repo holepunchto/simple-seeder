@@ -120,6 +120,10 @@ function ui () {
   print()
 
   if (allowedPeers !== undefined) {
+    const swarmPublicKey = lists[0].userData.swarmPublicKey
+    if (swarmPublicKey) {
+      print('Seedbee swarm:', crayon.green(HypercoreId.encode(swarmPublicKey)))
+    }
     print('Allowed Peers')
     if (allowedPeers === null) {
       print(crayon.green('All peers allowed.'))
@@ -202,11 +206,12 @@ function firewall (remotePublicKey) {
     return true
   }
 
-  const hexKey = b4a.toString(remotePublicKey, 'hex')
-  if (hexKey === list.userData.swarmPublicKey) {
+  const swarmPublicKey = list.userData.swarmPublicKey
+  if (swarmPublicKey && b4a.equals(swarmPublicKey, remotePublicKey)) {
     return false
   }
 
+  const hexKey = b4a.toString(remotePublicKey, 'hex')
   return list.userData.allowedPeers.indexOf(hexKey) === -1 // check if it is allowed
 }
 
