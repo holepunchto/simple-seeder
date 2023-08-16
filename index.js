@@ -203,6 +203,10 @@ function firewall (remotePublicKey) {
   }
 
   const hexKey = b4a.toString(remotePublicKey, 'hex')
+  if (hexKey === list.userData.swarmPublicKey) {
+    return false
+  }
+
   return list.userData.allowedPeers.indexOf(hexKey) === -1 // check if it is allowed
 }
 
