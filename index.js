@@ -9,9 +9,9 @@ const crayon = require('tiny-crayon')
 const byteSize = require('tiny-byte-size')
 const DHT = require('hyperdht')
 const debounceify = require('debounceify')
+const b4a = require('b4a')
 const load = require('./lib/load.js')
 const SimpleSeeder = require('./lib/simple-seeder.js')
-const b4a = require('b4a')
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -38,25 +38,25 @@ main().catch(err => {
 })
 
 async function main () {
-  swarm = new Hyperswarm({
-    seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
-    keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
-    dht: new DHT({ port: argv.port }),
-    firewall
-  })
-  swarm.on('connection', onsocket)
-  swarm.listen()
-  goodbye(() => swarm.destroy(), 1)
-
   if (argv.menu) {
     const menu = require('./menu.js')
-    await menu(argv.menu, { store, swarm })
+    await menu(argv.menu, { store })
     console.log('Closing')
     goodbye.exit()
     return
   }
 
   const seeds = await load(argv)
+
+  swarm = new Hyperswarm({
+    seed: secretKey ? HypercoreId.decode(secretKey) : undefined,
+    keyPair: secretKey ? undefined : await store.createKeyPair('simple-seeder-swarm'),
+    dht: new DHT({ port: argv.port }),
+    firewall
+  })
+  swarm.on('connection', c => store.replicate(c))
+  swarm.listen()
+  goodbye(() => swarm.destroy(), 1)
 
   tracker = new SimpleSeeder(store, swarm, { backup: argv.backup, onupdate: ui })
   goodbye(() => tracker.destroy())
@@ -240,8 +240,4 @@ function formatResource (core, blobs, { blocks, network, isDrive = false } = {})
 
 function format (...args) {
   return args.join(' ') + '\n'
-}
-
-function onsocket (socket) {
-  store.replicate(socket)
 }
