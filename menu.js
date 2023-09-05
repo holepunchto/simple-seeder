@@ -1,16 +1,22 @@
+const Hyperswarm = require('hyperswarm')
 const Id = require('hypercore-id-encoding')
 const crayon = require('tiny-crayon')
 const Menu = require('tiny-menu')
 const SeedBee = require('seedbee')
+const goodbye = require('graceful-goodbye')
 
 const types = ['core', 'bee', 'drive']
 
-module.exports = async function (key, { store, swarm }) {
+module.exports = async function (key, { store }) {
   const core = store.get(typeof key === 'string' ? { key: Id.decode(key) } : { name: 'list' })
   const list = new SeedBee(core)
+  await list.ready()
 
-  await core.ready()
+  const swarm = new Hyperswarm() // No firewall for the list
+  goodbye(() => swarm.destroy(), 1)
+
   const done = core.findingPeers()
+  swarm.on('connection', c => core.replicate(c))
   swarm.join(core.discoveryKey)
   swarm.flush().then(done, done)
 
