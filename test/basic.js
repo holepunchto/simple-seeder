@@ -9,7 +9,7 @@ const createTestnet = require('hyperdht/testnet')
 const b4a = require('b4a')
 
 test('basic', async function (t) {
-  t.plan(6)
+  t.plan(10)
 
   const { testnet, seeds } = await createResources(t)
 
@@ -25,6 +25,23 @@ test('basic', async function (t) {
   for (const seed of seeds) {
     const info = await ss.add(seed.key, seed.value)
     t.is(info.seeders, null)
+    // DEVNOTE: testing the inflightRanges is over-testing,
+    // as processing it correctly is the responsibility of corestore.
+    // However, it's added here anyway because the seeder
+    // was the original reason for adding that option, and
+    // a mistake there can result in re-introducing that
+    // hard-to-debug cascading failure
+    if (info.type === 'core') {
+      t.alike(info.instance.inflightRange, [16, 16], 'correct inflight range for core')
+    } else if (info.type === 'bee') {
+      t.alike(info.instance.core.inflightRange, [16, 16], 'correct infight range for bee')
+    } else if (info.type === 'drive') {
+      await info.instance.get('/a.txt') // Hack to get the blobs loaded
+      t.alike(info.instance.db.core.inflightRange, [16, 16], 'correct inflight range for drive db core')
+      t.alike(info.instance.blobs.core.inflightRange, [16, 16], 'correct inflight range for blobs db core')
+    } else {
+      throw new Error('Unexpected type, likely a bug in the test')
+    }
   }
 
   t.alike(await ss.get(seeds.core.key).instance.get(0), b4a.from('ab'))

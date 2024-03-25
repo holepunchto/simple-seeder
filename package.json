@@ -27,7 +27,7 @@
   "dependencies": {
     "@hyperswarm/seeders": "^1.1.2",
     "b4a": "^1.6.4",
-    "corestore": "^6.8.3",
+    "corestore": "holepunchto/corestore#inflight-range-opt",
     "debounceify": "^1.0.0",
     "graceful-goodbye": "^1.0.0",
     "hyperbee": "^2.12.0",
