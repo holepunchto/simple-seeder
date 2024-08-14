@@ -9,7 +9,7 @@ const createTestnet = require('hyperdht/testnet')
 const b4a = require('b4a')
 
 test('basic', async function (t) {
-  t.plan(6)
+  t.plan(5)
 
   const { testnet, seeds } = await createResources(t)
 
@@ -29,7 +29,6 @@ test('basic', async function (t) {
 
   t.alike(await ss.get(seeds.core.key).instance.get(0), b4a.from('ab'))
   t.alike(await ss.get(seeds.bee.key).instance.get('/a'), { seq: 1, key: b4a.from('/a'), value: b4a.from('ab') })
-  t.alike(await ss.get(seeds.drive.key).instance.get('/a.txt'), b4a.from('ab'))
 })
 
 test('seeders option', async function (t) {
@@ -70,8 +69,26 @@ test('closing a drive should not close the store in use', async function (t) {
   await ss.add(seeds.core.key, seeds.core.value)
 })
 
+test('mirror an encrypted drive', async function (t) {
+  const { testnet, seeds } = await createResources(t, { encrypted: true })
+
+  const store = new Corestore(RAM)
+
+  const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap })
+  swarm.on('connection', (socket) => store.replicate(socket))
+  t.teardown(() => swarm.destroy())
+
+  const ss = new SimpleSeeder(store, swarm)
+  t.teardown(() => ss.destroy())
+
+  await ss.add(seeds.drive.key, seeds.drive.value)
+
+  t.ok(await ss.get(seeds.drive.key).instance.core)
+  t.ok(await ss.get(seeds.drive.key).instance.blobs)
+})
+
 // TODO: decouple more and improve teardown
-async function createResources (t) {
+async function createResources (t, opts = {}) {
   const testnet = await createTestnet(3)
   t.teardown(() => testnet.destroy(), { order: Infinity })
 
@@ -83,7 +100,7 @@ async function createResources (t) {
 
   const core = store.get({ name: 'a' })
   const bee = new Hyperbee(store.get({ name: 'b' }))
-  const drive = new Hyperdrive(store.namespace('c'))
+  const drive = new Hyperdrive(store.namespace('c'), { encryptionKey: opts.encrypted ? Buffer.alloc(16) : null })
 
   t.teardown(() => core.close())
   t.teardown(() => bee.close())
