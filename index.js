@@ -223,7 +223,7 @@ function formatResource (core, blobs, { blocks, network, isDrive = false } = {})
   if (isDrive) byteLength.push(crayon.yellow(byteSize(blobs?.core.byteLength || 0)))
 
   const peers = [crayon.yellow(core.peers.length)]
-  if (isDrive) peers.push(crayon.yellow(blobs?.core.peers.length || 0))
+  if (isDrive) peers.push(crayon.yellow(blobs?.peers.length || 0))
 
   return format(
     '-',
